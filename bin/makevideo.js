@@ -3,17 +3,17 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { video, check, preview, record, VOICES, THEMES, SCENE_TYPES, FORMATS, SpecError } from '../src/index.js';
+import { video, check, preview, record, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
 
 const HELP = `makevideo — fast, standard video generation for AI agents.
 
-  makevideo <spec.json|spec.js>      render the video (mp4 + srt + report.json + jpg)
+  makevideo <spec.json|spec.js|notes.md>   render the video (mp4 + srt + report.json + jpg)
   makevideo check <spec>             validate only, print estimated length (instant)
   makevideo preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
   makevideo init [file]              write a starter spec (default: video.json)
   makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
-  makevideo voices | themes | types  list options
+  makevideo voices | themes | types | transitions  list options
 
 Flags:
   -o, --output <file>   override spec.output
@@ -61,7 +61,8 @@ async function load(file) {
     const mod = await import(pathToFileURL(abs).href);
     spec = mod.default ?? mod.spec;
     if (typeof spec === 'function') spec = await spec();
-  } else spec = JSON.parse(fs.readFileSync(abs, 'utf8'));
+  } else if (/\.(md|markdown)$/i.test(abs)) spec = fromMarkdown(fs.readFileSync(abs, 'utf8'));
+  else spec = JSON.parse(fs.readFileSync(abs, 'utf8'));
   for (const k of ['output', 'format', 'voice', 'theme', 'quality']) if (flags[k]) spec[k] = flags[k];
   if (flags.draft) spec.quality = 'draft';
   if (!spec.output) spec.output = path.basename(abs).replace(/\.[^.]+$/, '') + '.mp4';
@@ -80,6 +81,7 @@ try {
   else if (cmd === 'voices') out(VOICES, Object.entries(VOICES).map(([k, v]) => `${k.padEnd(12)} ${v}`).join('\n'));
   else if (cmd === 'themes') out(Object.keys(THEMES), Object.keys(THEMES).join('\n'));
   else if (cmd === 'types') out(SCENE_TYPES, Object.entries(SCENE_TYPES).map(([k, v]) => `${k.padEnd(10)} ${JSON.stringify(v.example)}`).join('\n'));
+  else if (cmd === 'transitions') out(TRANSITIONS, TRANSITIONS.join('\n'));
   else if (cmd === 'formats') out(FORMATS, Object.entries(FORMATS).map(([k, v]) => `${k.padEnd(10)} ${v.join('x')}`).join('\n'));
   else if (cmd === 'record') {
     if (!rest[0] || !flags.seconds) fail('usage: makevideo record <out.mp4> --seconds <n> [--window "Title"] [--fps 30]');
@@ -96,7 +98,8 @@ try {
     const { spec, baseDir } = await load(rest[0]);
     const r = check(spec, { baseDir });
     if (!r.ok) fail('invalid spec', { problems: r.problems });
-    out(r, `ok: ${r.scenes} scenes, about ${r.estimatedSeconds}s → ${r.output}`);
+    const tips = r.warnings.map((w) => '  - ' + w).join('\n');
+    out(r, `ok: ${r.scenes} scenes, about ${r.estimatedSeconds}s → ${r.output}` + (tips ? `\n${r.warnings.length} suggestion(s):\n${tips}` : ''));
   } else if (cmd === 'preview') {
     const { spec, baseDir } = await load(rest[0]);
     const r = await preview(spec, { baseDir });

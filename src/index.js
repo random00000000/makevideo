@@ -15,12 +15,13 @@ import path from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import ffmpegPath from 'ffmpeg-static';
 import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE } from './tts.js';
-import { normalize, sentences, forSpeech, cuesFor, revealTimes, SpecError, SCENE_TYPES, FORMATS } from './spec.js';
-import { drawFrame, makeLayout, wordTimes } from './draw.js';
+import { normalize, sentences, forSpeech, cuesFor, revealTimes, SpecError, SCENE_TYPES, FORMATS, lint, speakable } from './spec.js';
+import { fromMarkdown } from './markdown.js';
+import { drawFrame, makeLayout, wordTimes, chooseTransition, isVideoScene, splitRect, TRANSITIONS } from './draw.js';
 import { THEMES } from './themes.js';
 
 export { record } from './record.js';
-export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, SpecError, normalize };
+export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError, normalize, lint, speakable, fromMarkdown };
 export const FFMPEG = process.env.MAKEVIDEO_FFMPEG || ffmpegPath;
 
 const QUALITY = {
@@ -43,6 +44,7 @@ export async function video(input, opts = {}) {
   const t0 = Date.now();
   const log = opts.onProgress || (() => {});
   const spec = normalize(input, { baseDir: opts.baseDir });
+  for (const w of lint(spec)) log({ stage: 'lint', message: w });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-'));
   fs.mkdirSync(path.dirname(spec.output), { recursive: true });
   const speaker = spec.voice ? createSpeaker({ voice: spec.voice, speed: spec.speed, workers: opts.ttsWorkers ?? 3 }) : null;
@@ -69,6 +71,14 @@ export async function video(input, opts = {}) {
     await pool(spec.scenes.map((s, i) => async () => {
       const tl = (timeline[i] = timeScene(spec, s, await voiced[i]));
       Object.assign(tl, { index: i, count: n });
+      const prev = i > 0 ? spec.scenes[i - 1] : null;
+      tl.transition = chooseTransition(s, prev, spec.transition);
+      tl.nextDip = i < n - 1 && chooseTransition(spec.scenes[i + 1], s, spec.transition) === 'dip';
+      if (prev && !['none', 'cut', 'dip'].includes(tl.transition)) {
+        // the transition blends real pixels: render the previous scene's final frame
+        const ptl = Object.assign(timeScene(spec, prev, await voiced[i - 1]), { index: i - 1, count: n });
+        tl.prevFrame = await stillFor(spec, ptl, ptl.dur - 1 / spec.fps, tmp, { contentOnly: true });
+      }
       const ts = Date.now();
       await renderSegment(spec, tl, segs[i]);
       if (process.env.MAKEVIDEO_DEBUG) console.error(`scene ${i} ${s.type} ${tl.frames} frames ${Date.now() - ts} ms`);
@@ -120,7 +130,7 @@ export async function video(input, opts = {}) {
     return result;
   } finally {
     speaker?.close();
-    if (!opts.keepTemp) fs.rmSync(tmp, { recursive: true, force: true });
+    if (!opts.keepTemp) try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} // never mask the real error
   }
 }
 export default video;
@@ -133,7 +143,7 @@ export function check(input, opts = {}) {
       const sp = sentences(s.say).reduce((m, x) => m + estimateSeconds(x, spec.speed) + spec.gap, 0);
       return n + Math.max(sp ? sp + spec.padBefore + spec.padAfter : 0, s.duration || 0, 1.2);
     }, 0);
-    return { ok: true, problems: [], estimatedSeconds: +est.toFixed(1), scenes: spec.scenes.length, output: spec.output };
+    return { ok: true, problems: [], warnings: lint(spec), estimatedSeconds: +est.toFixed(1), scenes: spec.scenes.length, output: spec.output };
   } catch (e) {
     if (e instanceof SpecError) return { ok: false, problems: e.problems };
     throw e;
@@ -168,7 +178,7 @@ export async function preview(input, opts = {}) {
     fs.writeFileSync(out, sheet.toBuffer('image/png'));
     return { output: out, estimatedSeconds: +total.toFixed(1), scenes: timeline.length };
   } finally {
-    fs.rmSync(tmp, { recursive: true, force: true });
+    try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
   }
 }
 
@@ -209,23 +219,37 @@ function estimatedTimeline(spec) {
 async function sceneLayout(spec, tl) {
   const s = tl.scene;
   const assets = {};
-  if (s.type === 'image') assets.image = await loadImage(fs.readFileSync(s.srcPath));
-  const n = s.type === 'compare' ? 2 : s.items?.length || 0;
+  if (s.type === 'image' || (s.type === 'split' && !isVideoScene(s))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
+  let reveals, revealLen = 0.65;
+  if (s.type === 'statement') {
+    // words pop in at a speaking rhythm across the first ~70% of the narration
+    const nW = String(s.text).split(/\s+/).filter(Boolean).length;
+    const speechEnd = tl.spoken.length ? tl.spoken[tl.spoken.length - 1].end : tl.dur;
+    const step = Math.min(0.3, Math.max(0.1, ((speechEnd - spec.padBefore) * 0.7) / nW));
+    reveals = Array.from({ length: nW }, (_, i) => spec.padBefore * 0.6 + i * step);
+    revealLen = 0.35;
+  } else {
+    const n = s.type === 'compare' ? 2 : s.type === 'chart' ? s.bars.length : s.items?.length || (s.type === 'split' && s.text ? 1 : 0);
+    reveals = revealTimes(n, tl.spoken, tl.dur, spec.padBefore);
+    if (s.type === 'chart') revealLen = 1.0;
+  }
   return makeLayout(spec, s, {
-    dur: tl.dur, index: tl.index ?? 0, count: tl.count ?? 1, assets,
+    dur: tl.dur, index: tl.index ?? 0, count: tl.count ?? 1, assets, reveals, revealLen,
+    transition: tl.transition ?? 'none', prevFrame: tl.prevFrame ?? null, nextDip: tl.nextDip ?? false,
     cues: cuesFor(tl.spoken.filter((x) => x.text), spec.captionStyle === 'bold' ? 4 : 12),
-    reveals: revealTimes(n, tl.spoken, tl.dur, spec.padBefore),
   });
 }
 
-async function stillFor(spec, tl, t, tmp) {
-  const L = await sceneLayout(spec, tl);
+async function stillFor(spec, tl, t, tmp, extra = {}) {
+  const L = { ...(await sceneLayout(spec, tl)), ...extra };
   const canvas = createCanvas(spec.width, spec.height);
   const ctx = canvas.getContext('2d');
-  if (tl.scene.type === 'clip') {
-    const png = path.join(tmp, `clip${tl.offset}.png`);
-    await run(FFMPEG, ['-y', '-ss', String((tl.scene.start || 0) + Math.min(t, 2)), '-i', tl.scene.srcPath, '-frames:v', '1',
-      '-vf', fitFilter(tl.scene, spec.width, spec.height), png]);
+  if (isVideoScene(tl.scene)) {
+    const png = path.join(tmp, `v${tl.index ?? 0}-${Math.round(t * 1000)}.png`);
+    const len = await mediaDuration(tl.scene.srcPath);
+    const at = len ? ((tl.scene.start || 0) + t) % len : (tl.scene.start || 0) + t;
+    await run(FFMPEG, ['-y', '-ss', at.toFixed(3), '-i', tl.scene.srcPath, '-frames:v', '1',
+      '-vf', videoFilter(tl.scene, L, spec.width, spec.height), png]);
     const bg = await loadImage(fs.readFileSync(png));
     const over = createCanvas(spec.width, spec.height);
     drawFrame(over.getContext('2d'), tl.scene, t, L);
@@ -240,7 +264,7 @@ async function writePoster(spec, timeline, file) {
   const L = await sceneLayout(spec, tl);
   const canvas = createCanvas(spec.width, spec.height);
   const s = { ...tl.scene };
-  if (s.type === 'clip') return; // posters for clip-first videos: skip (no decoded frame here)
+  if (isVideoScene(s)) return; // posters for clip-first videos: skip (no decoded frame here)
   drawFrame(canvas.getContext('2d'), s, Math.min(tl.dur - 0.3, 2.5), { ...L, captions: false, progress: false });
   fs.writeFileSync(file, canvas.toBuffer('image/jpeg', 88));
 }
@@ -259,9 +283,9 @@ export function planFrames(tl, L, fps) {
   const mark = (t0, len) => {
     for (let f = Math.max(0, Math.floor(t0 * fps)); f < Math.min(N, Math.ceil((t0 + len) * fps) + 1); f++) live[f] = 1;
   };
-  mark(0, 1.75); // entrance animations, count-ups, opening fade
-  mark(L.dur - 0.3, 0.3); // closing fade
-  for (const r of L.reveals) mark(r, 0.65);
+  mark(0, 1.75); // entrance animations, transitions, count-ups, opening fade
+  mark(L.dur - 0.75, 0.75); // closing fades
+  for (const r of L.reveals) mark(r, L.revealLen ?? 0.65);
   for (const c of L.cues) {
     mark(c.start, L.captionStyle === 'bold' ? 0.2 : 0); // bold captions pop in
     mark(c.end, 0);
@@ -294,8 +318,8 @@ async function renderSegment(spec, tl, file) {
   const raw = ['-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-'];
   const enc = ['-c:v', 'libx264', ...QUALITY[spec.quality], '-threads', String(spec.encoderThreads), '-pix_fmt', 'yuv420p', '-r', String(fps), '-frames:v', String(tl.frames), '-an', file];
   let args;
-  if (s.type === 'clip') {
-    const fitV = fitFilter(s, W, H);
+  if (isVideoScene(s)) {
+    const fitV = videoFilter(s, L, W, H);
     args = ['-y', '-stream_loop', '-1', '-ss', String(s.start || 0), '-i', s.srcPath, ...raw,
       '-filter_complex', `[0:v]fps=${fps},${fitV},setsar=1[bg];[1:v]format=yuva420p${loops},setpts=N/${fps}/TB[ov];[bg][ov]overlay=format=auto:eof_action=repeat[v]`,
       '-map', '[v]', ...enc];
@@ -319,6 +343,29 @@ ${err}`)))));
   }
   ff.stdin.end();
   await closed;
+}
+
+/** Where the video goes: full frame for clips, the media box for split scenes. */
+function videoFilter(s, L, W, H) {
+  if (s.type !== 'split') return fitFilter(s, W, H);
+  const r = splitRect(s, L);
+  return `${fitFilter(s, r.w, r.h)},pad=${W}:${H}:${r.x}:${r.y}:color=black`;
+}
+
+const durations = new Map();
+/** Media length in seconds (parsed from ffmpeg's banner; ffmpeg-static ships no ffprobe). */
+async function mediaDuration(file) {
+  if (durations.has(file)) return durations.get(file);
+  const out = await new Promise((res) => {
+    const p = spawn(FFMPEG, ['-i', file], { stdio: ['ignore', 'ignore', 'pipe'] });
+    let err = '';
+    p.stderr.on('data', (d) => (err += d));
+    p.on('close', () => res(err));
+  });
+  const m = /Duration: (\d+):(\d+):([\d.]+)/.exec(out);
+  const d = m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0;
+  durations.set(file, d);
+  return d;
 }
 
 /** ffmpeg scale filter for a clip: fill-and-crop (default) or letterbox (`fit: "contain"`). */

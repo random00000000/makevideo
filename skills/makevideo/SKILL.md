@@ -29,13 +29,19 @@ The first render downloads the voice model (about 300 MB) to the Hugging Face ca
 - For TikTok/Shorts/Reels use `"format": "shorts"`, which switches on big word-by-word `bold` captions.
 - For game trailers, use `clip` scenes of real footage. Get footage with `npx makevideo record clip.mp4 --seconds 10 --window "Game Window Title"`.
 
+## Fastest path: Markdown
+
+Write `video.md`. Each `##` heading is a scene, list items are bullets, `- Label: 42` items become a chart, `![](clip.mp4)` adds media, a lone paragraph becomes a big statement, and `> lines` are the narration. Then run `npx makevideo video.md`.
+
 ## Scene types
 
-`title`, `bullets`, `steps`, `decisions`, `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`.
+`title`, `statement` (text; `*stars*` = accent words), `bullets`, `steps`, `decisions`, `chart` (bars [{label, value}], unit), `split` (src + items: media beside text), `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`. Transitions are automatic.
+
+For variety, open with a `title` or `statement`, mix in `chart`/`stat`/`split`, and avoid three scenes of the same type in a row. `check` warns you about this.
 
 ## Writing narration
 
-- Write `say` for the ear: "forty two percent", not "42%", and "version one point two", not "v1.2".
+- Write `say` naturally; symbols like 42%, v1.2, $3M and 4.6x are spoken correctly automatically.
 - Put names that get mispronounced into `"pronounce": { "Hacksilver": "Hack silver" }`.
 - For `bullets`/`steps`/`decisions`, write one intro sentence and then one sentence per item. Items then appear in sync with the voice.
 

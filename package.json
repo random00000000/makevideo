@@ -1,6 +1,6 @@
 {
   "name": "makevideo",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Fast, standard video generation for AI agents: JSON script in, narrated MP4 out. Text-to-video with a local neural voice (Kokoro TTS), auto-synced captions, slides, screenshots and gameplay clips, rendered to MP4 by ffmpeg. No browser, no API key, no cloud.",
   "type": "module",
   "main": "./src/index.js",
@@ -15,6 +15,7 @@
   "files": [
     "src",
     "bin",
+    "fonts",
     "schema.json",
     "README.md",
     "AGENTS.md",
@@ -65,7 +66,11 @@
     "youtube",
     "devlog",
     "changelog-video",
-    "demo-video"
+    "demo-video",
+    "markdown-to-video",
+    "transitions",
+    "kinetic-typography",
+    "animated-charts"
   ],
   "author": "Javier Roman Cruz",
   "license": "MIT",

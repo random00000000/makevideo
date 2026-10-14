@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { THEMES } from './themes.js';
 import { VOICES, DEFAULT_VOICE } from './tts.js';
+import { TRANSITIONS } from './draw.js';
 
 export const FORMATS = {
   landscape: [1920, 1080], '16:9': [1920, 1080],
@@ -23,6 +24,9 @@ export const SCENE_TYPES = {
   stat: { needs: ['value'], example: { type: 'stat', value: '42%', label: 'faster load times', say: 'Load times dropped forty two percent.' } },
   quote: { needs: ['text'], example: { type: 'quote', text: 'It finally feels fair.', by: 'Playtester', say: 'One playtester said it finally feels fair.' } },
   compare: { needs: ['left', 'right'], example: { type: 'compare', title: 'Before vs after', left: { title: 'Before', items: ['12 s load'] }, right: { title: 'After', items: ['3 s load'] }, say: 'Before, twelve seconds. After, three.' } },
+  statement: { needs: ['text'], example: { type: 'statement', text: 'Renders in *seconds*, not minutes.', say: 'It renders in seconds, not minutes.' } },
+  chart: { needs: ['bars'], example: { type: 'chart', title: 'Render time', unit: ' s', bars: [{ label: 'Before', value: 160 }, { label: 'After', value: 35 }], say: 'Render time. Before, one hundred sixty seconds. After, thirty five.' } },
+  split: { needs: ['src'], example: { type: 'split', src: 'screenshot.png', title: 'The new HUD', items: ['Cleaner', 'Faster to read'], say: 'The new HUD. It is cleaner. And faster to read.' } },
   outro: { needs: ['title'], example: { type: 'outro', title: 'Thanks for watching', say: 'That is all for now.' } },
 };
 
@@ -64,7 +68,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
   const scenes = (input.scenes || []).map((raw, i) => {
     const s = { ...raw };
     const where = `scenes[${i}]`;
-    if (!s.type) s.type = s.src ? (VID.test(s.src) ? 'clip' : 'image') : s.items ? 'bullets' : s.code ? 'code' : s.value != null ? 'stat' : 'title';
+    if (!s.type) s.type = s.src ? (s.items || s.text ? 'split' : VID.test(s.src) ? 'clip' : 'image') : s.bars ? 'chart' : s.items ? 'bullets' : s.code ? 'code' : s.value != null ? 'stat' : s.text ? 'statement' : 'title';
     const def = SCENE_TYPES[s.type];
     if (!def) { p.push(`${where}.type "${s.type}" is unknown. Use one of: ${Object.keys(SCENE_TYPES).join(', ')}.`); return s; }
     for (const k of def.needs) if (s[k] == null || s[k] === '') p.push(`${where} (${s.type}) is missing "${k}". Example: ${JSON.stringify(def.example)}`);
@@ -72,10 +76,18 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     if (s.say != null && typeof s.say !== 'string' && !Array.isArray(s.say)) p.push(`${where}.say must be a string (or array of sentences).`);
     if (Array.isArray(s.say)) s.say = s.say.join(' ');
     if (!s.say && !s.duration) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in makevideo: add "say": "..." or set "duration": seconds for a silent beat.`);
+    if (s.type === 'chart' && s.bars) {
+      s.bars = Array.isArray(s.bars)
+        ? s.bars.map((b) => (Array.isArray(b) ? { label: String(b[0]), value: Number(b[1]) } : { label: String(b.label), value: Number(b.value) }))
+        : Object.entries(s.bars).map(([label, value]) => ({ label, value: Number(value) }));
+      if (s.bars.some((b) => !Number.isFinite(b.value))) p.push(`${where}.bars values must be numbers. Example: ${JSON.stringify(def.example.bars)}`);
+    }
+    if (s.transition && !TRANSITIONS.includes(s.transition)) p.push(`${where}.transition "${s.transition}" is unknown. Use one of: ${TRANSITIONS.join(', ')}.`);
     if (s.src) {
       s.srcPath = path.resolve(baseDir, s.src);
       if (checkFiles && !fs.existsSync(s.srcPath)) p.push(`${where}.src not found: ${s.srcPath}`);
       if (s.type === 'image' && !IMG.test(s.src)) p.push(`${where}.src should be a still image (png/jpg/webp). For video or GIF use type "clip".`);
+      if (s.type === 'split' && !VID.test(s.src) && !IMG.test(s.src)) p.push(`${where}.src should be an image or a video.`);
       if (s.type === 'clip' && !VID.test(s.src)) p.push(`${where}.src should be a video or GIF (mp4/webm/mov/gif). For stills use type "image".`);
     }
     return s;
@@ -86,6 +98,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     music = path.resolve(baseDir, input.music);
     if (checkFiles && !fs.existsSync(music)) p.push(`music not found: ${music}`);
   }
+  if (input.transition && !TRANSITIONS.includes(input.transition)) p.push(`transition "${input.transition}" is unknown. Use one of: ${TRANSITIONS.join(', ')}.`);
   const captionStyle = input.captionStyle ?? (height > width ? 'bold' : 'classic');
   if (!['classic', 'bold', 'none'].includes(captionStyle)) p.push(`captionStyle "${captionStyle}" is unknown. Use classic | bold | none.`);
   let font = input.font ?? null;
@@ -107,6 +120,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     captionStyle,
     font,
     gif: input.gif ?? false,
+    transition: input.transition ?? 'auto',
     progressBar: input.progressBar ?? true,
     music, musicVolume: input.musicVolume ?? 0.12,
     pronounce: { ...DEFAULT_PRONOUNCE, ...(input.pronounce ?? {}) },
@@ -135,8 +149,33 @@ export function sentences(text) {
 }
 
 /** Apply the pronunciation dictionary to text sent to the voice (captions keep the original). */
+const SCALE = { k: 'thousand', K: 'thousand', m: 'million', M: 'million', b: 'billion', B: 'billion' };
+/**
+ * Make written text speakable, so agents can write naturally ("42%", "v1.2", "$3M", "4.6x")
+ * and the voice still says it right. Captions keep the original text.
+ */
+export function speakable(text) {
+  return String(text)
+    .replace(/\bv(\d+(?:\.\d+)+)\b/g, (_, v) => 'version ' + v.split('.').join(' point '))
+    .replace(/\$(\d[\d,]*(?:\.\d+)?)\s?([kKmMbB])\b/g, (_, n, s) => `${n} ${SCALE[s]} dollars`)
+    .replace(/\$(\d[\d,]*(?:\.\d+)?)/g, '$1 dollars')
+    .replace(/(\d)\s?%/g, '$1 percent')
+    .replace(/(\d)x\b/g, '$1 times')
+    .replace(/(\d) ?ms\b/g, '$1 milliseconds')
+    .replace(/(\d) s\b/g, '$1 seconds')
+    .replace(/(\d) ?fps\b/gi, '$1 frames per second')
+    .replace(/ & /g, ' and ')
+    .replace(/\s*(?:->|\u2192)\s*/g, ' to ')
+    .replace(/\be\.g\./gi, 'for example')
+    .replace(/\bi\.e\./gi, 'that is')
+    .replace(/\bvs\.?(?=\s)/gi, 'versus')
+    .replace(/#(\d+)/g, 'number $1')
+    .replace(/~\s?(\d)/g, 'about $1')
+    .replace(/(\d),(\d{3})\b/g, '$1$2');
+}
+
 export function forSpeech(text, pronounce) {
-  let out = text;
+  let out = speakable(text);
   for (const [word, say] of Object.entries(pronounce)) {
     out = out.replace(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\b`, 'g'), say);
   }
@@ -181,4 +220,34 @@ export function revealTimes(n, spoken, dur, padBefore) {
   if (starts.length === n) return starts.map((s, i) => (i === 0 ? Math.max(0.3, s) : s));
   const span = Math.max(dur - padBefore - 1, 0.5);
   return Array.from({ length: n }, (_, i) => padBefore + (span * i) / n);
+}
+
+const LIST_TYPES = new Set(['bullets', 'steps', 'decisions']);
+/**
+ * Quality lint: things that make a video worse but not invalid. Each warning names the scene
+ * and says what to do. `check()` and `video()` both report these.
+ */
+export function lint(spec) {
+  const w = [];
+  const words = (x) => String(x || '').split(/\s+/).filter(Boolean).length;
+  spec.scenes.forEach((s, i) => {
+    const where = `scenes[${i}] (${s.type})`;
+    const n = words(s.say);
+    if (n > 60) w.push(`${where}: narration is ${n} words (about ${Math.round(n / 2.5)} s on one slide). Split it into two scenes.`);
+    if (LIST_TYPES.has(s.type) && s.items) {
+      if (s.items.length > 6) w.push(`${where}: ${s.items.length} items. Keep lists to 6 or fewer; split the rest into another scene.`);
+      const long = s.items.filter((it) => words(it) > 12);
+      if (long.length) w.push(`${where}: ${long.length} item(s) over 12 words. Keep on-screen items short; put detail in "say".`);
+      const ss = sentences(s.say).length;
+      if (s.say && ss < s.items.length) w.push(`${where}: ${s.items.length} items but ${ss} sentence(s). Write one intro sentence plus one sentence per item so items appear with the voice.`);
+    }
+    if (s.title && words(s.title) > 10) w.push(`${where}: title is ${words(s.title)} words. Aim for 3 to 8.`);
+    if (s.type === 'statement' && words(s.text) > 14) w.push(`${where}: statement is ${words(s.text)} words. Statements hit hardest under 12 words.`);
+    if (s.type === 'chart' && s.bars && s.bars.length > 8) w.push(`${where}: ${s.bars.length} bars. Use 8 or fewer.`);
+    if (spec.height > spec.width && ['code', 'compare', 'chart'].includes(s.type)) w.push(`${where}: dense scene in a portrait video. Prefer statement, stat, clip or split for shorts.`);
+    if (i >= 2 && spec.scenes[i - 1].type === s.type && spec.scenes[i - 2].type === s.type) w.push(`${where}: third ${s.type} scene in a row. Vary scene types (statement, stat, split, chart) to keep it moving.`);
+  });
+  const first = spec.scenes[0]?.type;
+  if (first && !['title', 'statement', 'clip', 'stat'].includes(first)) w.push(`scenes[0] (${first}): open with a hook, a title, statement, stat or clip.`);
+  return w;
 }

@@ -12,9 +12,9 @@
 
 **Short-form too:** `"format": "shorts"` gives 1080×1920 with big word-by-word captions. ▶ [Watch the TikTok-style demo](docs/tiktok.mp4) ([`examples/tiktok.json`](examples/tiktok.json)): 23 s of video rendered in 15 s, plus an auto-exported GIF.
 
-**More examples, all made with makevideo:** ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
+**More examples, all made with makevideo:** ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
 
-**What it does:** narrated slides · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
+**What it does:** narrated slides · **automatic transitions** (push, slide, zoom, wipe) · kinetic **statements** · animated **charts** · **split** media + text · **write Markdown, get a video** · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
 <br clear="right">
 
 ```bash
@@ -52,6 +52,48 @@ Agents get asked for videos all the time, and every agent builds them differentl
 | Captions | rarely | burned in, plus an `.srt` sidecar |
 | Speed | minutes | **faster than real time on a CPU** (see [Performance](#performance)) |
 | Verification | watch the whole thing | `makevideo preview` makes a contact sheet in about 1 s |
+
+## Premium by default
+
+The goal is that an agent's *first* attempt looks finished. Without any extra config you get:
+
+- **Transitions that blend real frames.** Every scene flows from the previous scene's actual last frame. `auto` picks push, zoom, wipe or fade based on what is cut to what. Override with `"transition"` globally or per scene.
+- **Typography that ships with the package.** Inter, Montserrat and JetBrains Mono (OFL) are bundled, so a bare cloud Linux box renders exactly like your laptop.
+- **Depth:** key-light gradient, vignette and soft panel shadows on every theme.
+- **Speech cleanup:** write naturally. `42%`, `v1.2`, `$3M`, `4.6x`, `35 s`, `e.g.` and `->` are all spoken correctly, and captions keep what you wrote.
+- **Lint:** `check` flags walls of text, too many bullets, unsynced lists, overlong statements, dense scenes in portrait and repetitive pacing, and says how to fix each one.
+
+## Write Markdown, get a video
+
+```md
+---
+theme: midnight
+brand: My Game
+---
+# Patch 1.2
+The siege update
+> Here is what changed in patch one point two.
+
+## Rams breach gates
+![](captures/ram.mp4)
+- Wooden gates break in 3 hits
+- Stone gates still hold
+> Rams now breach wooden gates. Three hits and they are down. Stone gates still hold.
+
+## Load time
+<!-- highlight: Now -->
+- Before: 12 s
+- Now: 3 s
+
+## Decisions
+- Ship Friday?
+```
+
+```bash
+npx makevideo patch-notes.md
+```
+
+Each `#`/`##` heading starts a scene, and its body decides the type: a list gives bullets/steps/decisions, `label: number` items give a chart, an image or video gives image/clip (or split, when there is text too), a code fence gives code, `**42%** label` gives a stat, and a paragraph gives a statement. Lines starting with `>` are the narration. When a scene has none, its visible text is read aloud, because narration is the default. `<!-- key: value -->` sets scene options. See [`examples/whats-new-0.2.md`](examples/whats-new-0.2.md); the 0.2 release video is that one file.
 
 ## Use it from Claude Code (plugin)
 
@@ -93,6 +135,7 @@ There is also [`AGENTS.md`](AGENTS.md), [`llms.txt`](llms.txt), a JSON Schema at
   "musicVolume": 0.12,
   "pronounce": { "Hacksilver": "Hack silver" },  // TTS-only substitutions (merged over built-ins for JSON, MP4, GPU, ...); captions keep originals
   "quality": "standard",            // draft | standard | high
+  "transition": "auto",             // auto | push | slide | zoom | wipe | fade | dip | cut (also per scene)
   "captionStyle": "classic",        // classic (subtitle box) | bold (TikTok word-by-word, default for portrait) | none
   "font": "fonts/Anton.ttf",        // display font: a .ttf/.otf path or an installed family name
   "gif": { "width": 480, "fps": 12, "duration": 8 },  // also export an animated GIF (true = defaults)
@@ -114,8 +157,11 @@ Every scene accepts `say` (narration) and an optional `duration` (minimum second
 | `stat` | `value`, `label?` | numbers count up (`"42%"`, `"$1.2"`, `"3x"`) |
 | `quote` | `text`, `by?` | |
 | `compare` | `title?`, `left: {title, items}`, `right: {title, items}` | stacks vertically in portrait |
+| `statement` | `text`, `kicker?`, `align?` | huge kinetic type; words pop in with the voice; `*stars*` mark accent words |
+| `chart` | `bars: [{label, value}]` (or `{label: value}`), `title?`, `unit?`, `prefix?`, `highlight?`, `note?` | bars grow as the voice reaches them; values count up |
+| `split` | `src` (image or video), `title?`, `items?` or `text?`, `side?` (`left`/`right`) | media beside synced points; video plays inside the frame |
 
-Scene `type` is inferred when omitted (`src` → image/clip, `items` → bullets, `code` → code, `value` → stat).
+Scene `type` is inferred when omitted (`src` + `items`/`text` → split, `src` → image/clip, `bars` → chart, `items` → bullets, `code` → code, `value` → stat, `text` → statement).
 
 ## CLI
 

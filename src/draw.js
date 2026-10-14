@@ -1,6 +1,7 @@
 // Scene drawing on a 2D canvas (@napi-rs/canvas, Skia, no browser needed).
 // Every drawer is a pure function of (ctx, scene, t, L): same inputs, same pixels.
-import { GlobalFonts } from '@napi-rs/canvas';
+import { GlobalFonts, createCanvas } from '@napi-rs/canvas';
+import './fonts.js';
 import path from 'node:path';
 import { THEMES } from './themes.js';
 
@@ -8,9 +9,10 @@ export const clamp = (x, a = 0, b = 1) => Math.max(a, Math.min(b, x));
 export const easeOut = (x) => 1 - Math.pow(1 - clamp(x), 3);
 /** 0→1 progress of an entrance animation that starts at `start` and lasts `d` seconds. */
 export const enter = (t, start, d = 0.55) => easeOut((t - start) / d);
+export const easeInOut = (x) => { x = clamp(x); return x < 0.5 ? 4 * x * x * x : 1 - Math.pow(-2 * x + 2, 3) / 2; };
 
 export function setFont(ctx, L, size, weight = 600, mono = false) {
-  ctx.font = `${weight} ${Math.round(size)}px ${mono ? L.theme.mono : L.theme.font}`;
+  ctx.font = `${weight} ${Math.round(size)}px ${mono === 'display' ? L.theme.display || L.theme.font : mono ? L.theme.mono : L.theme.font}`;
 }
 
 export function wrap(ctx, text, maxW) {
@@ -58,19 +60,26 @@ function lines(ctx, ls, x, y, lh, align = 'left') {
 // ---------------------------------------------------------------- background
 
 export function drawBackground(ctx, L) {
+  paintBackground(ctx, L);
+}
+
+function paintBackground(ctx, L) {
   const { W, H, theme } = L;
   const g = ctx.createLinearGradient(0, 0, W * 0.4, H);
   g.addColorStop(0, theme.bg[0]);
   g.addColorStop(1, theme.bg[1]);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
-  // static glow: constant motion would defeat frame holding (see planFrames)
+  // One radial pass does both the key light (glow) and the vignette: each full-frame
+  // gradient costs ~5 ms, so they share one. Static, so frame holding still works.
   const gx = W * (0.72 + 0.06 * ((L.index * 37) % 5) / 4), gy = H * (0.22 + 0.1 * ((L.index * 53) % 3) / 2);
-  const r = Math.max(W, H) * 0.7;
-  const glow = ctx.createRadialGradient(gx, gy, 0, gx, gy, r);
-  glow.addColorStop(0, theme.glow);
-  glow.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = glow;
+  const r = Math.hypot(W, H) * 0.95;
+  const light = /^#f/i.test(theme.bg[0]);
+  const rg = ctx.createRadialGradient(gx, gy, 0, gx, gy, r);
+  rg.addColorStop(0, theme.glow);
+  rg.addColorStop(0.45, 'rgba(0,0,0,0)');
+  rg.addColorStop(1, light ? 'rgba(60,40,10,0.12)' : 'rgba(0,0,0,0.5)');
+  ctx.fillStyle = rg;
   ctx.fillRect(0, 0, W, H);
 }
 
@@ -96,16 +105,16 @@ function kicker(ctx, L, text, x, y, a) {
   return 56 * L.u;
 }
 
-function heading(ctx, L, text, t, y = L.m, maxLines = 2) {
+function heading(ctx, L, text, t, y = L.m, maxLines = 2, x = L.m, maxW = L.W - 2 * L.m) {
   if (!text) return y;
   const a = enter(t, 0.05);
-  const f = fit(ctx, L, text, { maxW: L.W - 2 * L.m, maxLines, size: 84 * L.u, weight: 800 });
+  const f = fit(ctx, L, text, { maxW, maxLines, size: 84 * L.u, weight: 800 });
   ctx.globalAlpha = a;
   ctx.fillStyle = L.theme.text;
-  lines(ctx, f.lines, L.m, y + (1 - a) * 24 * L.u, f.lh);
+  lines(ctx, f.lines, x, y + (1 - a) * 24 * L.u, f.lh);
   const by = y + f.lines.length * f.lh + 18 * L.u;
   ctx.fillStyle = L.theme.accent;
-  ctx.fillRect(L.m, by, 120 * L.u * a, 8 * L.u);
+  ctx.fillRect(x, by, 120 * L.u * a, 8 * L.u);
   ctx.globalAlpha = 1;
   return by + 50 * L.u;
 }
@@ -121,7 +130,7 @@ function lowerThird(ctx, L, title, subtitle, t) {
   const y = L.m * 0.6;
   ctx.globalAlpha = a;
   ctx.fillStyle = L.theme.panelStrong;
-  roundRect(ctx, x - 30 * L.u * (1 - a), y, maxW, h, 18 * L.u); ctx.fill();
+  shadow(ctx, L, () => { roundRect(ctx, x - 30 * L.u * (1 - a), y, maxW, h, 18 * L.u); ctx.fill(); });
   ctx.fillStyle = L.theme.accent;
   ctx.fillRect(x - 30 * L.u * (1 - a), y, 10 * L.u, h);
   let yy = y + 25 * L.u;
@@ -217,7 +226,7 @@ const drawers = {
     const lh = size * 1.45, h = src.length * lh + size * 1.4;
     const a = enter(t, 0.15);
     ctx.globalAlpha = a;
-    ctx.fillStyle = L.theme.codeBg; roundRect(ctx, L.m, y, L.W - 2 * L.m, h, 16 * L.u); ctx.fill();
+    ctx.fillStyle = L.theme.codeBg; shadow(ctx, L, () => { roundRect(ctx, L.m, y, L.W - 2 * L.m, h, 16 * L.u); ctx.fill(); });
     const hl = new Set((s.highlight || []).flatMap((r) => (Array.isArray(r) ? range(r[0], r[1]) : [r])));
     src.forEach((line, i) => {
       const ly = y + size * 0.7 + i * lh;
@@ -287,7 +296,7 @@ const drawers = {
       const x = vertical ? L.m : L.m + i * (cw + gap);
       const y = vertical ? y0 + i * (ch + gap) : y0;
       ctx.globalAlpha = a;
-      ctx.fillStyle = L.theme.panel; roundRect(ctx, x, y + (1 - a) * 30 * L.u, cw, ch, 20 * L.u); ctx.fill();
+      ctx.fillStyle = L.theme.panel; shadow(ctx, L, () => { roundRect(ctx, x, y + (1 - a) * 30 * L.u, cw, ch, 20 * L.u); ctx.fill(); });
       ctx.fillStyle = i ? L.theme.accent2 : L.theme.accent; ctx.fillRect(x, y + (1 - a) * 30 * L.u, cw, 8 * L.u);
       let yy = y + 40 * L.u + (1 - a) * 30 * L.u;
       const hf = fit(ctx, L, c.title || (i ? 'After' : 'Before'), { maxW: cw - 60 * L.u, maxLines: 2, size: 50 * L.u, weight: 800 });
@@ -346,10 +355,10 @@ function drawBoldCaption(ctx, L, t, cue) {
   const cur = times.reduce((c, at, i) => (t >= at ? i : c), 0);
   const pop = 0.85 + 0.15 * easeOut((t - cue.start) / 0.2);
   const maxW = L.W * 0.86;
-  let size = (L.portrait ? 96 : 76) * L.u;
+  let size = (L.portrait ? 92 : 72) * L.u;
   let rows;
   for (;;) {
-    setFont(ctx, L, size, 900);
+    setFont(ctx, L, size, 900, 'display');
     rows = [];
     let line = [];
     for (let i = 0; i < upper.length; i++) {
@@ -399,16 +408,44 @@ function drawCaption(ctx, L, t) {
   lines(ctx, ls, L.W / 2, y + 15 * L.u + lh * 0.1, lh, 'center');
 }
 
-/**
- * Draw one frame of a scene.
- * @param overlayOnly  true for `clip` scenes: transparent canvas over the video.
- */
-export function drawFrame(ctx, scene, t, L) {
-  const { W, H } = L;
-  const overlayOnly = scene.type === 'clip';
-  ctx.clearRect(0, 0, W, H);
-  if (!overlayOnly && scene.type !== 'image') drawBackground(ctx, L);
+export const TRANSITIONS = ['auto', 'push', 'slide', 'zoom', 'wipe', 'fade', 'dip', 'cut'];
+export const TRANSITION_SECONDS = 0.6;
+
+/** True when the scene's backdrop is live video composited underneath by ffmpeg. */
+export const isVideoScene = (s) => s.type === 'clip' || (s.type === 'split' && /\.(mp4|webm|mov|mkv|m4v|avi|gif)$/i.test(s.src || ''));
+
+/** Pick the transition into `scene` (from `prev`). `auto` varies it by content. */
+export function chooseTransition(scene, prev, global = 'auto') {
+  let t = scene.transition ?? global;
+  if (!prev) return 'none';
+  if (t === 'auto') {
+    if (['title', 'outro', 'statement'].includes(scene.type)) t = 'zoom';
+    else if (scene.type === 'image' || prev.type === 'image' || isVideoScene(prev)) t = 'fade';
+    else if (scene.type === 'chart' || scene.type === 'compare') t = 'wipe';
+    else t = 'push';
+  }
+  if (isVideoScene(scene) && !['cut', 'dip'].includes(t)) t = 'fade'; // overlay layer can only cross-fade
+  return t;
+}
+
+function shadow(ctx, L, fn) {
+  ctx.save();
+  ctx.shadowColor = 'rgba(0,0,0,0.38)';
+  ctx.shadowBlur = 44 * L.u;
+  ctx.shadowOffsetY = 14 * L.u;
+  fn();
+  ctx.restore();
+}
+
+/** Background + scene content, without captions/brand/progress ("chrome"). */
+export function drawContent(ctx, scene, t, L) {
+  ctx.clearRect(0, 0, L.W, L.H);
+  if (scene.type !== 'clip' && scene.type !== 'image') drawBackground(ctx, L);
   (drawers[scene.type] || drawers.title)(ctx, scene, t, L);
+}
+
+function drawChrome(ctx, scene, t, L) {
+  const { W, H } = L;
   if (L.brand) {
     setFont(ctx, L, 26 * L.u, 700);
     ctx.fillStyle = scene.type === 'clip' || scene.type === 'image' ? 'rgba(255,255,255,0.75)' : L.theme.muted;
@@ -424,11 +461,60 @@ export function drawFrame(ctx, scene, t, L) {
       ctx.fillRect(i * segW + (i ? 2 : 0), H - bh, segW - (i ? 2 : 0), bh);
     }
   }
-  // dip-to-background between scenes
-  const fade = Math.max(1 - t / 0.22, 1 - (L.dur - t) / 0.22, 0);
+}
+
+function scratch(L) {
+  return (L._scratch ??= createCanvas(L.W, L.H));
+}
+
+/** Composite the previous scene's last frame (`prev`) with this scene's content (`cur`). */
+function composite(ctx, cur, prev, kind, p, L) {
+  const { W, H } = L;
+  const draw = (img, alpha, x = 0, y = 0, s = 1) => {
+    ctx.globalAlpha = alpha;
+    ctx.drawImage(img, x + (W - W * s) / 2, y + (H - H * s) / 2, W * s, H * s);
+    ctx.globalAlpha = 1;
+  };
+  if (kind === 'fade') { draw(prev, 1 - p); return; } // `cur` is already on ctx
+  ctx.clearRect(0, 0, W, H);
+  if (kind === 'push') { draw(prev, 1, 0, 0, 1 + 0.05 * p); draw(cur, p, 0.07 * W * (1 - p)); }
+  else if (kind === 'slide') { draw(prev, 1, -W * p); draw(cur, 1, W * (1 - p)); }
+  else if (kind === 'zoom') { draw(cur, 1, 0, 0, 1.08 - 0.08 * p); draw(prev, 1 - p, 0, 0, 1 + 0.22 * p); }
+  else if (kind === 'wipe') {
+    draw(prev, 1);
+    const skew = H * 0.35, edge = -skew + p * (W + skew * 2);
+    ctx.save();
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(edge + skew, 0); ctx.lineTo(edge - skew, H); ctx.lineTo(0, H); ctx.closePath(); ctx.clip();
+    draw(cur, 1);
+    ctx.restore();
+    if (p > 0 && p < 1) {
+      ctx.strokeStyle = L.theme.accent; ctx.lineWidth = 10 * L.u;
+      ctx.beginPath(); ctx.moveTo(edge + skew, 0); ctx.lineTo(edge - skew, H); ctx.stroke();
+    }
+  } else draw(cur, 1);
+}
+
+/**
+ * Draw one frame of a scene: content → transition from the previous scene → chrome → fades.
+ * For video scenes the canvas is an overlay (transparent where the video shows).
+ */
+export function drawFrame(ctx, scene, t, L) {
+  const { W, H } = L;
+  const kind = L.prevFrame ? L.transition : 'none';
+  const inTr = !['none', 'cut', 'dip'].includes(kind) && t < TRANSITION_SECONDS;
+  const sc = inTr && kind !== 'fade' ? scratch(L) : null; // non-fade transitions compose from an offscreen copy
+  drawContent(sc ? sc.getContext('2d') : ctx, scene, t, L);
+  if (inTr) composite(ctx, sc, L.prevFrame, kind, easeInOut(t / TRANSITION_SECONDS), L);
+  if (L.contentOnly) return;
+  drawChrome(ctx, scene, t, L);
+  let fade = 0;
+  if (L.index === 0) fade = 1 - t / 0.45; // open from black
+  if (kind === 'dip') fade = Math.max(fade, 1 - t / 0.25);
+  if (L.index === L.count - 1) fade = Math.max(fade, 1 - (L.dur - t) / 0.7); // close to black
+  if (L.nextDip) fade = Math.max(fade, 1 - (L.dur - t) / 0.25);
   if (fade > 0) {
     ctx.globalAlpha = Math.min(1, fade);
-    ctx.fillStyle = overlayOnly || scene.type === 'image' ? '#000' : L.theme.bg[0];
+    ctx.fillStyle = L.index === 0 || L.index === L.count - 1 ? '#000' : L.theme.bg[0];
     ctx.fillRect(0, 0, W, H);
     ctx.globalAlpha = 1;
   }
@@ -466,3 +552,177 @@ function withFont(theme, font) {
   }
   return { ...theme, font: `"${family}", ${theme.font}` };
 }
+
+// ---------------------------------------------------------------- premium scene types
+
+function kickerWidth(ctx, L, text) {
+  setFont(ctx, L, 30 * L.u, 700);
+  return ctx.measureText(String(text).toUpperCase().split('').join(' ')).width;
+}
+
+/** Split `*accent words*` into word tokens with an accent flag. */
+function accentTokens(text) {
+  const out = [];
+  let on = false;
+  for (const raw of String(text).split(/\s+/).filter(Boolean)) {
+    const starts = raw.startsWith('*'), ends = /\*[.,!?:;]*$/.test(raw);
+    if (starts) on = true;
+    out.push({ text: raw.replace(/\*/g, ''), accent: on });
+    if (ends) on = false;
+  }
+  return out;
+}
+
+/** Kinetic statement: huge display type, words pop in with the voice. Use *stars* for accent words. */
+drawers.statement = function statement(ctx, s, t, L) {
+  const toks = accentTokens(s.text);
+  const maxW = L.W - 2 * L.m;
+  let size = (L.portrait ? 130 : 150) * L.u, rows, space;
+  for (;;) {
+    setFont(ctx, L, size, 900, 'display');
+    space = ctx.measureText(' ').width;
+    rows = [[]];
+    let w = 0;
+    toks.forEach((tk, i) => {
+      const tw = ctx.measureText(tk.text).width;
+      if (rows[rows.length - 1].length && w + space + tw > maxW) { rows.push([]); w = 0; }
+      rows[rows.length - 1].push(i);
+      w += (w ? space : 0) + tw;
+    });
+    if (rows.length <= (L.portrait ? 6 : 4) || size < 60 * L.u) break;
+    size *= 0.92;
+  }
+  const lh = size * 1.08;
+  const avail = L.H - L.captionH;
+  let y = (avail - rows.length * lh) / 2 + (s.kicker ? 30 * L.u : 0);
+  if (s.kicker) kicker(ctx, L, s.kicker, s.align === 'left' ? L.m : (L.W - kickerWidth(ctx, L, s.kicker)) / 2, y - 70 * L.u, enter(t, 0));
+  setFont(ctx, L, size, 900, 'display'); // the kicker changed the font
+  ctx.textBaseline = 'top'; ctx.textAlign = 'left';
+  for (const row of rows) {
+    const widths = row.map((i) => ctx.measureText(toks[i].text).width);
+    const total = widths.reduce((a, b) => a + b, 0) + space * (row.length - 1);
+    let x = s.align === 'left' ? L.m : (L.W - total) / 2;
+    row.forEach((i, k) => {
+      const a = enter(t, L.reveals[i] ?? 0, 0.32);
+      if (a > 0) {
+        ctx.save();
+        ctx.globalAlpha = a;
+        const cx = x + widths[k] / 2, cy = y + lh / 2, sc = 0.82 + 0.18 * a;
+        ctx.translate(cx, cy + (1 - a) * 26 * L.u); ctx.scale(sc, sc); ctx.translate(-cx, -cy);
+        ctx.fillStyle = toks[i].accent ? L.theme.accent : L.theme.text;
+        ctx.fillText(toks[i].text, x, y);
+        ctx.restore();
+      }
+      x += widths[k] + space;
+    });
+    y += lh;
+  }
+};
+
+/** Animated horizontal bar chart. bars: [{label, value}], unit/prefix, highlight (label). */
+drawers.chart = function chart(ctx, s, t, L) {
+  const y0 = heading(ctx, L, s.title, t);
+  const bars = s.bars;
+  const max = Math.max(...bars.map((b) => Math.abs(b.value)), 1e-9);
+  const hiLabel = s.highlight ?? bars.reduce((m, b) => (b.value > m.value ? b : m), bars[0]).label;
+  const avail = L.H - L.captionH - y0;
+  const rowH = Math.min(120 * L.u, avail / bars.length);
+  const barH = rowH * 0.56;
+  setFont(ctx, L, Math.min(44 * L.u, barH * 0.62), 600);
+  const labelW = Math.min(Math.max(...bars.map((b) => ctx.measureText(b.label).width)) + 40 * L.u, L.W * 0.32);
+  const x0 = L.m + labelW;
+  const valueRoom = 220 * L.u;
+  const barMaxW = L.W - L.m - x0 - valueRoom;
+  bars.forEach((b, i) => {
+    const y = y0 + i * rowH + (rowH - barH) / 2;
+    const g = easeOut((t - (L.reveals[i] ?? 0)) / 0.9);
+    // labels + empty tracks show from the start (dim), so the chart reads before bars grow
+    const a = clamp(g * 3);
+    ctx.globalAlpha = enter(t, 0.15) * (0.45 + 0.55 * a);
+    setFont(ctx, L, Math.min(44 * L.u, barH * 0.62), 600);
+    ctx.fillStyle = L.theme.text; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    ctx.fillText(fitText(ctx, b.label, labelW - 30 * L.u), x0 - 30 * L.u, y + barH / 2);
+    ctx.fillStyle = L.theme.panel; roundRect(ctx, x0, y, barMaxW, barH, barH / 2); ctx.fill();
+    ctx.globalAlpha = a;
+    const w = Math.max(barH, (Math.abs(b.value) / max) * barMaxW * g);
+    const hi = b.label === hiLabel;
+    const grad = ctx.createLinearGradient(x0, 0, x0 + w, 0);
+    grad.addColorStop(0, hi ? L.theme.accent : L.theme.accent2);
+    grad.addColorStop(1, hi ? L.theme.accent2 : L.theme.muted);
+    ctx.fillStyle = hi ? L.theme.accent : grad;
+    roundRect(ctx, x0, y, w, barH, barH / 2); ctx.fill();
+    const dec = (String(b.value).split('.')[1] || '').length;
+    const shown = (s.prefix || '') + (b.value * g).toLocaleString('en-US', { minimumFractionDigits: dec, maximumFractionDigits: dec }) + (s.unit || '');
+    setFont(ctx, L, Math.min(46 * L.u, barH * 0.66), 800);
+    ctx.fillStyle = hi ? L.theme.accent : L.theme.text; ctx.textAlign = 'left';
+    ctx.fillText(shown, x0 + w + 22 * L.u, y + barH / 2);
+    ctx.globalAlpha = 1;
+  });
+  if (s.note) {
+    ctx.globalAlpha = enter(t, (L.reveals[bars.length - 1] ?? 0) + 0.6);
+    setFont(ctx, L, 30 * L.u, 500); ctx.fillStyle = L.theme.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    ctx.fillText(s.note, L.m, Math.min(y0 + bars.length * rowH + 10 * L.u, L.H - L.captionH));
+    ctx.globalAlpha = 1;
+  }
+};
+
+function fitText(ctx, text, maxW) {
+  if (ctx.measureText(text).width <= maxW) return text;
+  let t = text;
+  while (t.length > 1 && ctx.measureText(t + '\u2026').width > maxW) t = t.slice(0, -1);
+  return t + '\u2026';
+}
+
+/** Where the media sits in a split scene (shared with ffmpeg for video placement). */
+export function splitRect(s, L) {
+  const media = L.portrait ? { w: L.W - 2 * L.m, h: (L.H - L.captionH) * 0.46 } : { w: L.W * 0.5, h: (L.H - L.captionH - L.m * 0.6) * 0.92 };
+  if (!L.portrait && media.h > media.w * 0.75) media.h = media.w * 0.75;
+  const x = L.portrait ? L.m : s.side === 'left' ? L.m : L.W - L.m - media.w;
+  const y = L.portrait ? L.m * 1.4 : (L.H - L.captionH - media.h) / 2 + L.m * 0.3;
+  return { x: Math.round(x / 2) * 2, y: Math.round(y / 2) * 2, w: Math.round(media.w / 2) * 2, h: Math.round(media.h / 2) * 2 };
+}
+
+/** Media (image or video) on one side, title + synced points on the other. */
+drawers.split = function split(ctx, s, t, L) {
+  const r = splitRect(s, L);
+  const rad = 22 * L.u;
+  const a = enter(t, 0.1, 0.7);
+  if (isVideoScene(s)) {
+    // punch a rounded hole so the video composited underneath shows through
+    ctx.save(); ctx.globalCompositeOperation = 'destination-out';
+    roundRect(ctx, r.x, r.y, r.w, r.h, rad); ctx.fill(); ctx.restore();
+  } else if (L.assets.image) {
+    ctx.save(); ctx.globalAlpha = a;
+    shadow(ctx, L, () => { ctx.fillStyle = '#000'; roundRect(ctx, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, rad); ctx.fill(); });
+    roundRect(ctx, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, rad); ctx.clip();
+    drawImageCover(ctx, L.assets.image, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, 1, s.fit);
+    ctx.restore();
+  }
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2 * L.u;
+  roundRect(ctx, r.x, r.y, r.w, r.h, rad); ctx.stroke();
+  // text column
+  const tx = L.portrait ? L.m : s.side === 'left' ? r.x + r.w + 70 * L.u : L.m;
+  const tw = L.portrait ? L.W - 2 * L.m : L.W - 2 * L.m - r.w - 70 * L.u;
+  let y = L.portrait ? r.y + r.h + 50 * L.u : r.y + 10 * L.u;
+  y = heading(ctx, L, s.title, t, y, 3, tx, tw);
+  const items = s.items || (s.text ? [s.text] : []);
+  let size = 44 * L.u, blocks;
+  const bottom = L.H - L.captionH;
+  for (;;) {
+    setFont(ctx, L, size, 600);
+    blocks = items.map((it) => wrap(ctx, it, tw - (s.items ? 60 * L.u : 0)));
+    const h = blocks.reduce((n, b) => n + b.length * size * 1.25 + size * 0.6, 0);
+    if (y + h < bottom || size < 24 * L.u) break;
+    size *= 0.92;
+  }
+  const current = L.reveals.reduce((c, rv, i) => (t >= rv ? i : c), -1);
+  blocks.forEach((b, i) => {
+    const ba = enter(t, L.reveals[i] ?? 0.4);
+    ctx.globalAlpha = ba * (!s.items || i === current ? 1 : 0.62);
+    if (s.items) { ctx.fillStyle = L.theme.accent; ctx.beginPath(); ctx.arc(tx + 12 * L.u, y + size * 0.62, 9 * L.u, 0, Math.PI * 2); ctx.fill(); }
+    setFont(ctx, L, size, s.items ? 600 : 500); ctx.fillStyle = s.items ? L.theme.text : L.theme.muted;
+    lines(ctx, b, tx + (s.items ? 50 * L.u : 0) + (1 - ba) * 30 * L.u, y, size * 1.25);
+    y += b.length * size * 1.25 + size * 0.6;
+  });
+  ctx.globalAlpha = 1;
+};

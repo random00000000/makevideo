@@ -141,9 +141,12 @@
           "type": {
             "enum": [
               "title",
+              "statement",
               "bullets",
               "steps",
               "decisions",
+              "chart",
+              "split",
               "image",
               "clip",
               "code",
@@ -180,7 +183,9 @@
               "type": "string"
             }
           },
-          "highlight": {},
+          "highlight": {
+            "description": "code: line numbers / ranges; chart: label to highlight"
+          },
           "src": {
             "type": "string",
             "description": "image (png/jpg/webp) or clip (mp4/webm/mov/gif), relative to the spec file"
@@ -246,9 +251,81 @@
                 }
               }
             }
+          },
+          "transition": {
+            "enum": [
+              "auto",
+              "push",
+              "slide",
+              "zoom",
+              "wipe",
+              "fade",
+              "dip",
+              "cut"
+            ],
+            "description": "transition INTO this scene"
+          },
+          "align": {
+            "enum": [
+              "center",
+              "left"
+            ]
+          },
+          "bars": {
+            "description": "chart data: [{label, value}] or {label: value}",
+            "oneOf": [
+              {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "label": {
+                      "type": "string"
+                    },
+                    "value": {
+                      "type": "number"
+                    }
+                  }
+                }
+              },
+              {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              }
+            ]
+          },
+          "unit": {
+            "type": "string"
+          },
+          "prefix": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          },
+          "side": {
+            "enum": [
+              "left",
+              "right"
+            ]
           }
         }
       }
+    },
+    "transition": {
+      "enum": [
+        "auto",
+        "push",
+        "slide",
+        "zoom",
+        "wipe",
+        "fade",
+        "dip",
+        "cut"
+      ],
+      "default": "auto"
     }
   }
 }
