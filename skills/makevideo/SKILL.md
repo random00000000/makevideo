@@ -15,6 +15,10 @@ npm i github:random00000000/makevideo
 
 Run `npx makevideo setup` once to pre-download the voice models (about 330 MB Kokoro plus 63 MB for the fast voice). After that everything is offline.
 
+## As a tool
+
+If the `makevideo` MCP server is connected, call `video_reference` once, then `preview_video` (it returns an image to check), then `make_video`. Otherwise use the CLI below.
+
 ## Workflow
 
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.

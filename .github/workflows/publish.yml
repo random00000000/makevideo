@@ -1,0 +1,40 @@
+# On every GitHub release: publish to npm (if the NPM_TOKEN secret exists), then list the
+# MCP server in the official MCP Registry (GitHub OIDC proves the io.github.* namespace).
+name: publish
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write   # npm provenance + MCP Registry OIDC login
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm test
+      - name: Publish to npm
+        id: npm
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          if npm view "makevideo@$VERSION" version >/dev/null 2>&1; then
+            echo "makevideo@$VERSION already on npm"; echo "ready=true" >> "$GITHUB_OUTPUT"
+          elif [ -n "$NODE_AUTH_TOKEN" ]; then
+            npm publish --provenance --access public && echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::NPM_TOKEN secret not set: skipping npm and MCP Registry. Add it under Settings > Secrets > Actions."
+          fi
+      - name: Publish to the MCP Registry
+        if: steps.npm.outputs.ready == 'true'
+        run: |
+          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+          ./mcp-publisher login github-oidc
+          ./mcp-publisher publish

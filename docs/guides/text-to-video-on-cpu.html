@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Narrated text-to-video on a CPU — no GPU, no API key (Node.js)</title>
+<meta name="description" content="Generate narrated MP4 videos from text on a plain CPU in Node.js, with a local neural TTS voice, captions and transitions. Measured timings included.">
+<link rel="canonical" href="https://random00000000.github.io/makevideo/guides/text-to-video-on-cpu.html">
+<meta property="og:title" content="Narrated text-to-video on a CPU — no GPU, no API key (Node.js)"><meta property="og:description" content="Generate narrated MP4 videos from text on a plain CPU in Node.js, with a local neural TTS voice, captions and transitions. Measured timings included.">
+<meta property="og:type" content="website"><meta property="og:url" content="https://random00000000.github.io/makevideo/guides/text-to-video-on-cpu.html"><meta property="og:image" content="https://random00000000.github.io/makevideo/social-card.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="text/plain" title="llms.txt" href="https://random00000000.github.io/makevideo/llms.txt">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Narrated text-to-video on a CPU — no GPU, no API key (Node.js)","description":"Generate narrated MP4 videos from text on a plain CPU in Node.js, with a local neural TTS voice, captions and transitions. Measured timings included.","about":"makevideo"}</script>
+<style>
+:root{--bg:#0a0f1f;--bg2:#121933;--text:#eef1f8;--muted:#a3adc8;--accent:#ffb547;--accent2:#5ad1ff;--panel:rgba(255,255,255,.05);--line:rgba(255,255,255,.1)}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.65 Inter,"Segoe UI",system-ui,-apple-system,sans-serif}
+a{color:var(--accent2)}a:hover{color:var(--accent)}
+.wrap{max-width:980px;margin:0 auto;padding:0 20px}
+header.top{border-bottom:1px solid var(--line)}header.top .wrap{display:flex;gap:20px;align-items:center;height:60px}
+header.top a.brand{color:var(--text);font-weight:800;text-decoration:none;font-size:19px}header.top nav{margin-left:auto;display:flex;gap:18px;font-size:15px}
+header.top nav a{color:var(--muted);text-decoration:none}header.top nav a:hover{color:var(--text)}
+.hero{padding:64px 0 32px}.kicker{color:var(--accent);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:.3em 0 .35em;letter-spacing:-.02em}
+.lede{font-size:20px;color:var(--muted);max-width:720px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin:26px 0}
+.btn{display:inline-block;padding:11px 18px;border-radius:10px;background:var(--accent);color:#1a1206;font-weight:700;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+pre{background:#060a16;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;font:14px/1.55 "JetBrains Mono",Consolas,monospace}
+code{font-family:"JetBrains Mono",Consolas,monospace;font-size:.92em}p code,li code,td code{background:var(--panel);padding:1px 6px;border-radius:6px}
+video{width:100%;border-radius:14px;border:1px solid var(--line);background:#000;display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h3{margin:.1em 0 .4em;font-size:18px}.card p{margin:0;color:var(--muted);font-size:15px}
+.card a.more{display:block;margin-top:10px;font-weight:600;font-size:15px}
+h2{font-size:28px;margin:2.2em 0 .6em;letter-spacing:-.01em}
+table{border-collapse:collapse;width:100%;font-size:15px;display:block;overflow-x:auto}th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+article{padding:40px 0 60px}article h1{font-size:clamp(30px,5vw,44px)}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:14px;padding:28px 0 48px;margin-top:40px}
+</style>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="https://random00000000.github.io/makevideo/">makevideo</a><nav><a href="https://random00000000.github.io/makevideo/#guides">Guides</a><a href="https://random00000000.github.io/makevideo/llms-full.txt">llms-full.txt</a><a href="https://github.com/random00000000/makevideo">GitHub</a></nav></div></header>
+<article class="wrap"><h1>Narrated text-to-video on a CPU, with no GPU and no API key</h1>
+<p>Most &quot;text to video&quot; tools either call a paid cloud API or need a GPU. Agent sandboxes and CI runners usually have neither. makevideo renders on a plain CPU:</p>
+<ul>
+<li><strong>Voice:</strong> Kokoro-82M (Apache-2.0) running locally through ONNX Runtime — or a Piper voice with <code>--fast</code> that speaks ~10x faster than real time on two CPU threads.</li>
+<li><strong>Frames:</strong> drawn with Skia (<code>@napi-rs/canvas</code>) — no headless browser.</li>
+<li><strong>Encoding:</strong> H.264 via a bundled ffmpeg (<code>ffmpeg-static</code>).</li>
+</ul>
+<pre><code class="language-bash">npm i github:random00000000/makevideo
+npx makevideo setup          # pre-download voice models once (CI / cloud images)
+npx makevideo video.md       # or video.json
+npx makevideo video.md --fast
+</code></pre>
+<h2>How fast is it?</h2>
+<p>Measured on a 6-core laptop CPU (i7-10750H), no GPU, for the same 74-second, 8-scene video:</p>
+<table>
+<thead>
+<tr>
+<th></th>
+<th>time</th>
+</tr>
+</thead>
+<tbody><tr>
+<td>first render, default voice</td>
+<td>~81 s</td>
+</tr>
+<tr>
+<td>first render, <code>--fast</code> voice</td>
+<td>~36 s</td>
+</tr>
+<tr>
+<td>re-render with cached speech</td>
+<td>~28 s</td>
+</tr>
+</tbody></table>
+<h2>Why it is fast on a CPU</h2>
+<ol>
+<li><strong>Frame holding.</strong> Slide videos are mostly still frames. makevideo knows each scene type&#39;s animation timing, draws only frames that can change (about 30%), and lets ffmpeg repeat held frames after colour conversion, where repeats are almost free.</li>
+<li><strong>Render processes.</strong> Scenes draw and encode in a pool of processes, so drawing uses many cores.</li>
+<li><strong>Tuned speech.</strong> ONNX threads are pinned per process; processes that each grab every core fight and get slower.</li>
+<li><strong>Caching.</strong> Every sentence&#39;s audio is cached by voice + text, so re-renders after a layout fix skip speech entirely.</li>
+</ol>
+<h2>From code</h2>
+<pre><code class="language-js">import { video } from &#39;makevideo&#39;;
+
+const r = await video({
+  title: &#39;Patch notes&#39;,
+  scenes: [
+    { type: &#39;title&#39;, title: &#39;Patch 1.2&#39;, say: &#39;Here is what changed in patch one point two.&#39; },
+    { type: &#39;chart&#39;, title: &#39;Load time&#39;, unit: &#39; s&#39;, bars: { Before: 12, Now: 3 }, say: &#39;Load time. Twelve seconds before. Three now.&#39; },
+  ],
+});
+console.log(r.output, r.duration, r.seconds);
+</code></pre>
+<p><a href="https://random00000000.github.io/makevideo/">← makevideo home</a> · <a href="https://github.com/random00000000/makevideo">GitHub</a></p></article>
+<footer><div class="wrap">makevideo 0.4.0 · MIT · <a href="https://github.com/random00000000/makevideo">github.com/random00000000/makevideo</a> · voice: Kokoro-82M (Apache-2.0), Piper voices (CC0 / public domain) · fonts: Inter, Montserrat, JetBrains Mono (OFL)</div></footer>
+</body></html>

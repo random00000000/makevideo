@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://random00000000.github.io/makevideo/sitemap.xml

@@ -1,6 +1,6 @@
 {
   "name": "makevideo",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Fast, standard video generation for AI agents: JSON script in, narrated MP4 out. Text-to-video with a local neural voice (Kokoro TTS), auto-synced captions, slides, screenshots and gameplay clips, rendered to MP4 by ffmpeg. No browser, no API key, no cloud.",
   "type": "module",
   "main": "./src/index.js",
@@ -22,14 +22,16 @@
     "llms.txt",
     "LICENSE",
     "skills",
-    "examples/*.json"
+    "examples/*.json",
+    "server.json"
   ],
   "engines": {
     "node": ">=18"
   },
   "scripts": {
     "test": "node test/smoke.js && node test/mcp.js",
-    "example": "node bin/makevideo.js examples/showcase.json"
+    "example": "node bin/makevideo.js examples/showcase.json",
+    "site": "node scripts/build-site.mjs"
   },
   "keywords": [
     "video",
@@ -74,7 +76,12 @@
     "piper",
     "piper-tts",
     "fast-tts",
-    "cpu-only"
+    "cpu-only",
+    "mcp-server",
+    "model-context-protocol",
+    "agents-md",
+    "cursor",
+    "copilot"
   ],
   "author": "Javier Roman Cruz",
   "license": "MIT",
@@ -95,5 +102,9 @@
   },
   "publishConfig": {
     "access": "public"
-  }
+  },
+  "devDependencies": {
+    "marked": "^14.1.4"
+  },
+  "mcpName": "io.github.random00000000/makevideo"
 }

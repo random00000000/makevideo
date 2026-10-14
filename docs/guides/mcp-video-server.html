@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Give any MCP client a video tool (Claude Desktop, Cursor, VS Code, Codex)</title>
+<meta name="description" content="Run makevideo as a Model Context Protocol server so any MCP-capable assistant can preview and render narrated MP4 videos.">
+<link rel="canonical" href="https://random00000000.github.io/makevideo/guides/mcp-video-server.html">
+<meta property="og:title" content="Give any MCP client a video tool (Claude Desktop, Cursor, VS Code, Codex)"><meta property="og:description" content="Run makevideo as a Model Context Protocol server so any MCP-capable assistant can preview and render narrated MP4 videos.">
+<meta property="og:type" content="website"><meta property="og:url" content="https://random00000000.github.io/makevideo/guides/mcp-video-server.html"><meta property="og:image" content="https://random00000000.github.io/makevideo/social-card.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="alternate" type="text/plain" title="llms.txt" href="https://random00000000.github.io/makevideo/llms.txt">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"TechArticle","headline":"Give any MCP client a video tool (Claude Desktop, Cursor, VS Code, Codex)","description":"Run makevideo as a Model Context Protocol server so any MCP-capable assistant can preview and render narrated MP4 videos.","about":"makevideo"}</script>
+<style>
+:root{--bg:#0a0f1f;--bg2:#121933;--text:#eef1f8;--muted:#a3adc8;--accent:#ffb547;--accent2:#5ad1ff;--panel:rgba(255,255,255,.05);--line:rgba(255,255,255,.1)}
+*{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--bg);color:var(--text);font:17px/1.65 Inter,"Segoe UI",system-ui,-apple-system,sans-serif}
+a{color:var(--accent2)}a:hover{color:var(--accent)}
+.wrap{max-width:980px;margin:0 auto;padding:0 20px}
+header.top{border-bottom:1px solid var(--line)}header.top .wrap{display:flex;gap:20px;align-items:center;height:60px}
+header.top a.brand{color:var(--text);font-weight:800;text-decoration:none;font-size:19px}header.top nav{margin-left:auto;display:flex;gap:18px;font-size:15px}
+header.top nav a{color:var(--muted);text-decoration:none}header.top nav a:hover{color:var(--text)}
+.hero{padding:64px 0 32px}.kicker{color:var(--accent);font-weight:700;letter-spacing:.12em;text-transform:uppercase;font-size:13px}
+h1{font-size:clamp(34px,6vw,58px);line-height:1.08;margin:.3em 0 .35em;letter-spacing:-.02em}
+.lede{font-size:20px;color:var(--muted);max-width:720px}
+.cta{display:flex;flex-wrap:wrap;gap:12px;margin:26px 0}
+.btn{display:inline-block;padding:11px 18px;border-radius:10px;background:var(--accent);color:#1a1206;font-weight:700;text-decoration:none}
+.btn.ghost{background:transparent;color:var(--text);border:1px solid var(--line)}
+pre{background:#060a16;border:1px solid var(--line);border-radius:12px;padding:16px;overflow-x:auto;font:14px/1.55 "JetBrains Mono",Consolas,monospace}
+code{font-family:"JetBrains Mono",Consolas,monospace;font-size:.92em}p code,li code,td code{background:var(--panel);padding:1px 6px;border-radius:6px}
+video{width:100%;border-radius:14px;border:1px solid var(--line);background:#000;display:block}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin:24px 0}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 20px}
+.card h3{margin:.1em 0 .4em;font-size:18px}.card p{margin:0;color:var(--muted);font-size:15px}
+.card a.more{display:block;margin-top:10px;font-weight:600;font-size:15px}
+h2{font-size:28px;margin:2.2em 0 .6em;letter-spacing:-.01em}
+table{border-collapse:collapse;width:100%;font-size:15px;display:block;overflow-x:auto}th,td{border-bottom:1px solid var(--line);padding:8px 10px;text-align:left;vertical-align:top}th{color:var(--muted);font-weight:600}
+article{padding:40px 0 60px}article h1{font-size:clamp(30px,5vw,44px)}
+footer{border-top:1px solid var(--line);color:var(--muted);font-size:14px;padding:28px 0 48px;margin-top:40px}
+</style>
+</head><body>
+<header class="top"><div class="wrap"><a class="brand" href="https://random00000000.github.io/makevideo/">makevideo</a><nav><a href="https://random00000000.github.io/makevideo/#guides">Guides</a><a href="https://random00000000.github.io/makevideo/llms-full.txt">llms-full.txt</a><a href="https://github.com/random00000000/makevideo">GitHub</a></nav></div></header>
+<article class="wrap"><h1>A video tool for any MCP client</h1>
+<p>makevideo ships an MCP server over stdio:</p>
+<pre><code class="language-bash">npx -y github:random00000000/makevideo mcp
+</code></pre>
+<h2>Configure your client</h2>
+<p>Most clients accept this shape (Claude Desktop <code>claude_desktop_config.json</code>, Cursor <code>.cursor/mcp.json</code>, VS Code <code>mcp.json</code>, and others):</p>
+<pre><code class="language-json">{
+  &quot;mcpServers&quot;: {
+    &quot;makevideo&quot;: {
+      &quot;command&quot;: &quot;npx&quot;,
+      &quot;args&quot;: [&quot;-y&quot;, &quot;github:random00000000/makevideo&quot;, &quot;mcp&quot;]
+    }
+  }
+}
+</code></pre>
+<p>Claude Code: <code>claude mcp add makevideo -- npx -y github:random00000000/makevideo mcp</code>, or install the plugin (<code>/plugin marketplace add random00000000/makevideo</code>), which bundles the server and a skill.</p>
+<h2>Tools</h2>
+<table>
+<thead>
+<tr>
+<th>tool</th>
+<th>what it does</th>
+</tr>
+</thead>
+<tbody><tr>
+<td><code>make_video</code></td>
+<td>Render Markdown or a JSON spec to MP4 (+ captions, poster, report). <code>fast: true</code> for the fast voice. Streams progress notifications.</td>
+</tr>
+<tr>
+<td><code>preview_video</code></td>
+<td>One still per scene as an <strong>image</strong> the model can look at, plus lint suggestions. ~1 s, no audio.</td>
+</tr>
+<tr>
+<td><code>check_video</code></td>
+<td>Instant validation: problems, quality warnings, estimated duration.</td>
+</tr>
+<tr>
+<td><code>video_reference</code></td>
+<td>Scene types with examples, transitions, voices, themes, formats and the Markdown syntax.</td>
+</tr>
+</tbody></table>
+<h2>Tips</h2>
+<ul>
+<li>Pass <code>baseDir</code> so relative media paths (clips, images) resolve where your files are.</li>
+<li>First renders download the voice model; run <code>npx -y github:random00000000/makevideo setup</code> once on new machines.</li>
+</ul>
+<p><a href="https://random00000000.github.io/makevideo/">← makevideo home</a> · <a href="https://github.com/random00000000/makevideo">GitHub</a></p></article>
+<footer><div class="wrap">makevideo 0.4.0 · MIT · <a href="https://github.com/random00000000/makevideo">github.com/random00000000/makevideo</a> · voice: Kokoro-82M (Apache-2.0), Piper voices (CC0 / public domain) · fonts: Inter, Montserrat, JetBrains Mono (OFL)</div></footer>
+</body></html>

@@ -1,0 +1,18 @@
+{
+  "$schema": "https://static.modelcontextprotocol.io/schemas/2025-12-11/server.schema.json",
+  "name": "io.github.random00000000/makevideo",
+  "title": "makevideo",
+  "description": "Narrated, captioned MP4 videos from Markdown or JSON. Local voice, CPU-only, no API key.",
+  "repository": { "url": "https://github.com/random00000000/makevideo", "source": "github" },
+  "websiteUrl": "https://random00000000.github.io/makevideo/",
+  "version": "0.4.0",
+  "packages": [
+    {
+      "registryType": "npm",
+      "identifier": "makevideo",
+      "version": "0.4.0",
+      "transport": { "type": "stdio" },
+      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+    }
+  ]
+}

@@ -1,0 +1,25 @@
+# makevideo
+
+> Fast, standard video generation for AI agents: a JSON script in, a narrated MP4 out. Node.js library and CLI: scenes with `say` text are voiced locally by Kokoro TTS (one consistent voice), timed to the real audio, captioned, and rendered to MP4 by ffmpeg on the CPU. No browser, GPU, API key or cloud needed. It supports Markdown input, automatic transitions, kinetic statements, animated charts, split media layouts, slides, screenshots, video/GIF clips, code, stats, quotes, comparisons, TikTok-style word captions, GIF export and screen recording. Bundled fonts give the same look on any machine.
+
+Install: `npm i github:random00000000/makevideo`
+Render: `npx makevideo video.json` (or `video.md`) → video.mp4, video.srt, video.report.json, video.jpg (poster)
+Fast: `npx makevideo video.json --fast` (Piper voice, ~10x real time on CPU)
+Setup: `npx makevideo setup` (pre-download voice models once)
+Validate: `npx makevideo check video.json --json`
+Preview: `npx makevideo preview video.json` → contact-sheet PNG in about 1 s
+Record: `npx makevideo record clip.mp4 --seconds 10 [--window "Title"]`
+MCP: `npx -y github:random00000000/makevideo mcp` (tools: make_video, preview_video, check_video, video_reference)
+Agents: `npx -y github:random00000000/makevideo agents --all` writes "use makevideo for videos" into AGENTS.md / CLAUDE.md / Cursor / Copilot
+API: `import { video, check, preview, record } from 'makevideo'`
+
+## Docs
+- [Website and guides](https://random00000000.github.io/makevideo/)
+- [llms-full.txt: all docs in one file](https://random00000000.github.io/makevideo/llms-full.txt)
+- [README](https://github.com/random00000000/makevideo#readme): spec reference, scene types, performance
+- [Agent skill](https://github.com/random00000000/makevideo/blob/main/skills/makevideo/SKILL.md): the workflow for agents
+- [JSON Schema](https://github.com/random00000000/makevideo/blob/main/schema.json)
+- [Examples](https://github.com/random00000000/makevideo/tree/main/examples): showcase.json (landscape), tiktok.json (shorts), why-makevideo.json (explainer), changelog-0.1.json (changelog/recap)
+
+## Minimal spec
+{"title":"Demo","scenes":[{"type":"title","title":"Hello","say":"Hello there."},{"type":"bullets","title":"Points","items":["One","Two"],"say":"Two points. One. And two."}]}
