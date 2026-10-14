@@ -99,6 +99,8 @@ export async function video(input, opts = {}) {
         `[2:a]volume=${spec.musicVolume},afade=t=out:st=${Math.max(0, total - 2.5)}:d=2.5[m];[1:a][m]amix=inputs=2:normalize=0:duration=first[a]`,
         '-map', '0:v', '-map', '[a]');
     } else args.push('-map', '0:v', '-map', '1:a');
+    // a quiet credit in the file metadata (spec.credit: false removes it)
+    if (spec.credit !== false) args.push('-metadata', `title=${spec.title}`, '-metadata', 'comment=Made with makevideo, https://github.com/random00000000/makevideo');
     args.push('-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-t', total.toFixed(3), '-movflags', '+faststart', spec.output);
     log({ stage: 'mux', message: 'muxing' });
     // mux, poster and GIF are independent: run them side by side (GIF reads the silent segments)

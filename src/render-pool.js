@@ -8,7 +8,7 @@ export function createRenderPool(size) {
   const idle = [], queue = [], pending = new Map(), workers = [];
   let seq = 0;
   const spawnOne = () => {
-    const w = fork(fileURLToPath(new URL('./render-worker.js', import.meta.url)), [], { serialization: 'advanced', stdio: ['ignore', 'inherit', 'inherit', 'ipc'] });
+    const w = fork(fileURLToPath(new URL('./render-worker.js', import.meta.url)), [], { serialization: 'advanced', stdio: ['ignore', 'ignore', 'inherit', 'ipc'] });
     w.on('message', ({ id, error }) => {
       const p = pending.get(id);
       pending.delete(id);

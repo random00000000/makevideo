@@ -121,6 +121,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     font,
     gif: input.gif ?? false,
     transition: input.transition ?? 'auto',
+    credit: input.credit ?? true,
     progressBar: input.progressBar ?? true,
     music, musicVolume: input.musicVolume ?? 0.12,
     pronounce: { ...DEFAULT_PRONOUNCE, ...(input.pronounce ?? {}) },

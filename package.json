@@ -28,7 +28,7 @@
     "node": ">=18"
   },
   "scripts": {
-    "test": "node test/smoke.js",
+    "test": "node test/smoke.js && node test/mcp.js",
     "example": "node bin/makevideo.js examples/showcase.json"
   },
   "keywords": [

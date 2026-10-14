@@ -13,6 +13,9 @@ const HELP = `makevideo — fast, standard video generation for AI agents.
   makevideo init [file]              write a starter spec (default: video.json)
   makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
+  makevideo agents [--claude --cursor --copilot --all --global]
+                                    tell this project's agents (AGENTS.md etc.) to use makevideo
+  makevideo mcp                     run as an MCP server (stdio) for Claude, Cursor, Codex, VS Code...
   makevideo setup [voices...]       pre-download voice models (do this once in CI/cloud images)
   makevideo voices | themes | types | transitions  list options
 
@@ -84,7 +87,15 @@ try {
   else if (cmd === 'voices') out(VOICES, Object.entries(VOICES).map(([k, v]) => `${k.padEnd(12)} ${v}`).join('\n'));
   else if (cmd === 'themes') out(Object.keys(THEMES), Object.keys(THEMES).join('\n'));
   else if (cmd === 'types') out(SCENE_TYPES, Object.entries(SCENE_TYPES).map(([k, v]) => `${k.padEnd(10)} ${JSON.stringify(v.example)}`).join('\n'));
-  else if (cmd === 'setup') {
+  else if (cmd === 'agents') {
+    const { installAgentInstructions } = await import('../src/agents.js');
+    const targets = ['agents', 'claude', 'cursor', 'copilot', 'global', 'all'].filter((k) => flags[k]);
+    const files = installAgentInstructions({ dir: rest[0] || process.cwd(), targets: targets.length ? targets : ['agents'] });
+    out({ ok: true, files }, 'agents in this project will now use makevideo for videos:\n' + files.map((f) => '  ' + f).join('\n'));
+  } else if (cmd === 'mcp') {
+    const { serveMcp } = await import('../src/mcp.js');
+    await serveMcp();
+  } else if (cmd === 'setup') {
     // pre-download voice models so the first render doesn't wait on a ~330 MB download
     await setup({ voices: rest.length ? rest : undefined, log: (m) => !json && console.error(m) });
     out({ ok: true }, 'voices ready');
