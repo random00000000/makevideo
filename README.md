@@ -162,7 +162,7 @@ await video({ format: 'shorts', theme: 'forge', scenes: [
 - **Caching.** Every sentence's audio is cached by (model, voice, speed, text) in `~/.cache/narrated` (override with `NARRATED_CACHE`). When you re-render after a layout tweak, the voice step is skipped.
 - **No browser.** Frames are drawn with Skia (`@napi-rs/canvas`), not headless Chrome.
 
-Measured on an i7-10750H laptop (6 cores, no GPU used): the 87 s, 10-scene showcase renders in **about 35 s** with cached speech, or about 60–70 s on the first run, which includes generating the speech. The first-ever run also downloads the voice model (about 300 MB, once).
+Measured on an i7-10750H laptop (6 cores, no GPU used): the 87 s, 10-scene showcase renders in **about 35 s** with cached speech, or about 96 s on a cold first run, where generating the speech takes most of the time (Kokoro runs at about 1.5× real time per process on this CPU). The first-ever run also downloads the voice model (about 300 MB, once).
 
 Knobs: `quality: "draft"` (fastest encode), `format: "720p"`, `NARRATED_THREADS` (x264 threads per scene), `video(spec, { concurrency, ttsWorkers })`.
 
