@@ -1,5 +1,7 @@
 # makevideo
 
+[![GitHub release](https://img.shields.io/github/v/release/random00000000/makevideo)](https://github.com/random00000000/makevideo/releases) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757)](#use-it-from-claude-code-plugin) ![CPU only](https://img.shields.io/badge/GPU-not%20needed-success) ![no API key](https://img.shields.io/badge/API%20key-not%20needed-success)
+
 **Fast, standard video generation for AI agents.** One JSON script in, one finished MP4 out, rendered the same way every time. You write scenes, each with a line to say. `makevideo` voices them with one consistent neural voice, times every scene to the real audio, adds captions, and renders an MP4 with a bundled ffmpeg. It runs on the CPU only: no browser, no GPU, no API key and no cloud.
 
 [![poster](docs/showcase.jpg)](docs/showcase.mp4)
@@ -50,6 +52,15 @@ Agents get asked for videos all the time, and every agent builds them differentl
 | Captions | rarely | burned in, plus an `.srt` sidecar |
 | Speed | minutes | **faster than real time on a CPU** (see [Performance](#performance)) |
 | Verification | watch the whole thing | `makevideo preview` makes a contact sheet in about 1 s |
+
+## Use it from Claude Code (plugin)
+
+```
+/plugin marketplace add random00000000/makevideo
+/plugin install makevideo@makevideo
+```
+
+Then just say **"make a video about …"**. Claude writes the spec, previews it, renders it, and hands you the MP4.
 
 ## For AI agents (start here)
 

@@ -1,0 +1,14 @@
+{
+  "name": "makevideo",
+  "owner": { "name": "random00000000", "url": "https://github.com/random00000000" },
+  "metadata": { "description": "makevideo: fast, standard video generation for AI agents." },
+  "plugins": [
+    {
+      "name": "makevideo",
+      "source": "./",
+      "description": "Say \"make a video\" and Claude renders a narrated, captioned MP4 with makevideo. Local voice, CPU-only, no API key.",
+      "version": "0.1.0",
+      "category": "productivity"
+    }
+  ]
+}
