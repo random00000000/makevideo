@@ -15,7 +15,7 @@ export const FORMATS = {
 export const SCENE_TYPES = {
   title: { needs: ['title'], example: { type: 'title', title: 'Hacksilver', subtitle: 'What changed this week', say: 'Here is what changed this week.' } },
   bullets: { needs: ['items'], example: { type: 'bullets', title: 'Highlights', items: ['Faster pathing', 'New siege units'], say: 'Two highlights. Pathing is faster. And siege units are in.' } },
-  steps: { needs: ['items'], example: { type: 'steps', title: 'How it works', items: ['Write a spec', 'Run narrated'], say: 'First, write a spec. Then run narrated.' } },
+  steps: { needs: ['items'], example: { type: 'steps', title: 'How it works', items: ['Write a spec', 'Run makevideo'], say: 'First, write a spec. Then run makevideo.' } },
   decisions: { needs: ['items'], example: { type: 'decisions', title: 'Decisions for you', items: ['Ship Friday or wait?'], say: 'One decision for you: ship Friday, or wait.' } },
   image: { needs: ['src'], example: { type: 'image', src: 'screenshot.png', title: 'The new HUD', say: 'This is the new HUD.' } },
   clip: { needs: ['src'], example: { type: 'clip', src: 'gameplay.mp4', start: 2, title: 'Siege in action', say: 'Watch the ram breach the gate.' } },
@@ -26,10 +26,16 @@ export const SCENE_TYPES = {
   outro: { needs: ['title'], example: { type: 'outro', title: 'Thanks for watching', say: 'That is all for now.' } },
 };
 
-export class NarratedError extends Error {
+/** Built-in pronunciations so every video says common tech words the same way. */
+export const DEFAULT_PRONOUNCE = {
+  makevideo: 'make video', JSON: 'jason', ffmpeg: 'F F mpeg', npm: 'N P M', npx: 'N P X',
+  GPU: 'G P U', CPU: 'C P U', API: 'A P I', TTS: 'T T S', MP4: 'M P 4', SRT: 'S R T', GIF: 'gif', GIFs: 'gifs',
+};
+
+export class SpecError extends Error {
   constructor(problems) {
     super('Invalid video spec:\n' + problems.map((p) => '  - ' + p).join('\n'));
-    this.name = 'NarratedError';
+    this.name = 'SpecError';
     this.problems = problems;
   }
 }
@@ -40,7 +46,7 @@ const VID = /\.(mp4|webm|mov|mkv|m4v|avi|gif)$/i; // GIFs play as clips
 export function normalize(input, { baseDir = process.cwd(), checkFiles = true } = {}) {
   const p = [];
   if (Array.isArray(input)) input = { scenes: input };
-  if (!input || typeof input !== 'object') throw new NarratedError(['Spec must be an object like { title, scenes: [...] }.']);
+  if (!input || typeof input !== 'object') throw new SpecError(['Spec must be an object like { title, scenes: [...] }.']);
   const fmt = input.format ?? 'landscape';
   let [width, height] = FORMATS[fmt] || [];
   if (input.width && input.height) [width, height] = [input.width, input.height];
@@ -65,7 +71,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     if (s.items && !Array.isArray(s.items)) p.push(`${where}.items must be an array of strings.`);
     if (s.say != null && typeof s.say !== 'string' && !Array.isArray(s.say)) p.push(`${where}.say must be a string (or array of sentences).`);
     if (Array.isArray(s.say)) s.say = s.say.join(' ');
-    if (!s.say && !s.duration) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in narrated: add "say": "..." or set "duration": seconds for a silent beat.`);
+    if (!s.say && !s.duration) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in makevideo: add "say": "..." or set "duration": seconds for a silent beat.`);
     if (s.src) {
       s.srcPath = path.resolve(baseDir, s.src);
       if (checkFiles && !fs.existsSync(s.srcPath)) p.push(`${where}.src not found: ${s.srcPath}`);
@@ -87,7 +93,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     font = path.resolve(baseDir, font);
     if (checkFiles && !fs.existsSync(font)) p.push(`font file not found: ${font}`);
   }
-  if (p.length) throw new NarratedError(p);
+  if (p.length) throw new SpecError(p);
 
   return {
     title: input.title ?? scenes.find((s) => s.title)?.title ?? 'video',
@@ -103,12 +109,12 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     gif: input.gif ?? false,
     progressBar: input.progressBar ?? true,
     music, musicVolume: input.musicVolume ?? 0.12,
-    pronounce: input.pronounce ?? {},
+    pronounce: { ...DEFAULT_PRONOUNCE, ...(input.pronounce ?? {}) },
     padBefore: input.padBefore ?? 0.35,
     padAfter: input.padAfter ?? 0.55,
     gap: input.sentenceGap ?? 0.18,
     quality: input.quality ?? 'standard',
-    encoderThreads: input.encoderThreads ?? Number(process.env.NARRATED_THREADS || 4),
+    encoderThreads: input.encoderThreads ?? Number(process.env.MAKEVIDEO_THREADS || 4),
     scenes,
   };
 }

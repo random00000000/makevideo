@@ -1,0 +1,100 @@
+{
+  "title": "makevideo 0.1: what happened, what changed",
+  "output": "out/changelog-0.1.mp4",
+  "brand": "makevideo",
+  "scenes": [
+    {
+      "type": "title",
+      "kicker": "Changelog · version 0.1",
+      "title": "What happened, what changed",
+      "subtitle": "From one request to a published video library",
+      "say": "Here is what happened in this build, and what changed along the way."
+    },
+    {
+      "type": "bullets",
+      "title": "The ask",
+      "items": [
+        "One library every agent uses for videos",
+        "The same voice and look every time",
+        "Narration without having to ask for it",
+        "Fast, even on a CPU-only cloud machine"
+      ],
+      "say": "The ask was simple. Build one library that every agent reaches for when it needs a video. The same voice and look every time. Narration without having to ask for it. And fast, even on a cloud machine with no GPU."
+    },
+    {
+      "type": "steps",
+      "title": "What got built",
+      "items": [
+        "A JSON spec: scenes, each with a line to say",
+        "A local voice, cached sentence by sentence",
+        "Scenes timed to the real audio, captions included",
+        "check, preview, render and record commands"
+      ],
+      "say": "Here is what got built. A JSON spec, where every scene has a line to say. A local voice, cached one sentence at a time. Scenes timed to the real audio, with captions. And four commands: check, preview, render, and record."
+    },
+    {
+      "type": "image",
+      "src": "../docs/showcase.preview.png",
+      "fit": "contain",
+      "zoom": false,
+      "title": "Eleven scene types",
+      "subtitle": "The one-second preview shows every scene before rendering",
+      "say": "There are eleven scene types, from title cards to code, stats, and before and after comparisons. The preview command shows all of them on one image in about a second."
+    },
+    {
+      "type": "compare",
+      "title": "The speed fix",
+      "left": { "title": "First version", "items": ["Every frame drawn and encoded", "Parallel encoders fought for the CPU", "160 seconds for an 87-second video"] },
+      "right": { "title": "Frame holding", "items": ["Only frames that change are drawn", "Repeats happen inside ffmpeg, almost free", "35 seconds for the same video"] },
+      "say": "The biggest change was speed. The first version drew and encoded every single frame, and its parallel encoders fought over the CPU. It took a hundred and sixty seconds for an eighty seven second video. Now, only frames that actually change are drawn, and repeats are made inside ffmpeg, almost for free. The same video takes thirty five seconds."
+    },
+    {
+      "type": "stat",
+      "value": "4.6x",
+      "label": "faster renders on a laptop CPU, with no GPU",
+      "say": "That is about four and a half times faster, on a laptop CPU, with no GPU."
+    },
+    {
+      "type": "clip",
+      "src": "../docs/tiktok.mp4",
+      "fit": "contain",
+      "title": "Added on request",
+      "subtitle": "TikTok captions · GIFs in and out · fonts · screen recording",
+      "say": "Then came the requests. TikTok style videos, with big word by word captions. GIFs in and out. Custom fonts. And screen recording, for game trailers."
+    },
+    {
+      "type": "bullets",
+      "title": "Bugs caught on the way",
+      "items": [
+        "The voice crashed inside worker threads, so it moved to processes",
+        "The report file overwrote the spec, so it was renamed",
+        "Captions merged two sentences, so the splitter was fixed"
+      ],
+      "say": "A few bugs were caught on the way. The voice engine crashed inside worker threads, so it moved to separate processes. The render report overwrote the spec file, so it got a new name. And captions merged two sentences, so the sentence splitter was fixed."
+    },
+    {
+      "type": "compare",
+      "title": "The rename",
+      "left": { "title": "narrated", "items": ["Named after one feature", "Easy to miss when searching"] },
+      "right": { "title": "makevideo", "items": ["Matches how people ask", "Reads like a sentence: npx makevideo"] },
+      "say": "And the name changed. narrated described just one feature. makevideo matches how people actually ask for a video, and the command reads like a sentence."
+    },
+    {
+      "type": "decisions",
+      "title": "Decisions for you",
+      "items": [
+        "Publish to npm? It needs your npm login",
+        "Install the agent skill for all your projects?",
+        "Next speed target: the voice, which is still the slowest step"
+      ],
+      "say": "Three decisions for you. Should it be published to npm? That needs your login. Should the agent skill be installed for all your projects? And should the next round focus on the voice, which is still the slowest step?"
+    },
+    {
+      "type": "outro",
+      "kicker": "Open source · MIT",
+      "title": "makevideo",
+      "subtitle": "github.com/random00000000/makevideo",
+      "say": "That is makevideo, version zero point one."
+    }
+  ]
+}

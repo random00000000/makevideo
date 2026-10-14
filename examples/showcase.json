@@ -1,17 +1,17 @@
 {
-  "title": "narrated: videos for AI agents",
+  "title": "makevideo: videos for AI agents",
   "output": "out/showcase.mp4",
   "theme": "midnight",
   "voice": "af_heart",
-  "brand": "narrated",
+  "brand": "makevideo",
   "pronounce": { "ffmpeg": "F F mpeg", "JSON": "jason", "TTS": "T T S" },
   "scenes": [
     {
       "type": "title",
       "kicker": "Open source · MIT",
-      "title": "narrated",
-      "subtitle": "Narrated videos from a JSON script. Built for AI agents.",
-      "say": "This video was written as a JSON file, and rendered by narrated. No editor, no browser, no API key."
+      "title": "makevideo",
+      "subtitle": "Fast, standard video generation. Built for AI agents.",
+      "say": "This video was written as a JSON file, and rendered by makevideo. No editor, no browser, no API key."
     },
     {
       "type": "bullets",
@@ -22,13 +22,13 @@
     {
       "type": "steps",
       "title": "The fix: one standard pipeline",
-      "items": ["Write scenes, each with a line to say", "narrated voices it with one consistent voice", "Scenes are timed to the real audio", "Captions, MP4, SRT and a report come out"],
-      "say": "narrated makes it one standard pipeline. You write scenes, and each scene has a line to say. narrated voices it locally, with the same voice every time. Every scene is timed to the real audio length. And out comes an MP4, captions, and a JSON report."
+      "items": ["Write scenes, each with a line to say", "makevideo voices it with one consistent voice", "Scenes are timed to the real audio", "Captions, MP4, SRT and a report come out"],
+      "say": "makevideo makes it one standard pipeline. You write scenes, and each scene has a line to say. makevideo voices it locally, with the same voice every time. Every scene is timed to the real audio length. And out comes an MP4, captions, and a JSON report."
     },
     {
       "type": "code",
       "title": "The whole API",
-      "code": "import { video } from 'narrated';\n\nawait video({\n  title: 'Patch notes',\n  scenes: [\n    { type: 'title', title: 'v1.2', say: 'Here is version one point two.' },\n    { type: 'clip', src: 'siege.mp4', say: 'Rams now breach gates.' },\n  ],\n});",
+      "code": "import { video } from 'makevideo';\n\nawait video({\n  title: 'Patch notes',\n  scenes: [\n    { type: 'title', title: 'v1.2', say: 'Here is version one point two.' },\n    { type: 'clip', src: 'siege.mp4', say: 'Rams now breach gates.' },\n  ],\n});",
       "highlight": [[5, 8]],
       "say": "The whole API is one function. Pass a list of scenes. Every scene says something."
     },
@@ -50,8 +50,8 @@
       "type": "compare",
       "title": "Before vs after",
       "left": { "title": "Ad-hoc videos", "items": ["New script every time", "Random voices", "Silent by default", "Slow"] },
-      "right": { "title": "narrated", "items": ["One JSON spec", "One consistent voice", "Narrated by default", "Parallel and cached"] },
-      "say": "Before, every video was a one off. With narrated, it is one spec format, one voice, narration by default, and a parallel, cached render."
+      "right": { "title": "makevideo", "items": ["One JSON spec", "One consistent voice", "Narrated by default", "Parallel and cached"] },
+      "say": "Before, every video was a one off. With makevideo, it is one spec format, one voice, narration by default, and a parallel, cached render."
     },
     {
       "type": "stat",
@@ -62,13 +62,13 @@
     {
       "type": "quote",
       "text": "When an agent needs a video, it should reach for one tool.",
-      "by": "the idea behind narrated",
+      "by": "the idea behind makevideo",
       "say": "When an agent needs a video, it should reach for one tool."
     },
     {
       "type": "decisions",
       "title": "Try it",
-      "items": ["npm i github:random00000000/narrated", "npx narrated init", "npx narrated video.json"],
+      "items": ["npm i github:random00000000/makevideo", "npx makevideo init", "npx makevideo video.json"],
       "say": "To try it, install it from GitHub. Run init to get a starter script. Then render it."
     }
   ]

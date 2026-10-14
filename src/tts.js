@@ -29,7 +29,7 @@ export const VOICES = {
 };
 
 export function cacheDir() {
-  return process.env.NARRATED_CACHE || path.join(os.homedir(), '.cache', 'narrated');
+  return process.env.MAKEVIDEO_CACHE || path.join(os.homedir(), '.cache', 'makevideo');
 }
 
 class Pool {

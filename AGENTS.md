@@ -1,6 +1,6 @@
-# AGENTS.md: narrated
+# AGENTS.md: makevideo
 
-If you are an AI agent asked to produce a **video** (explainer, devlog, patch notes, trailer, demo, recap, TikTok/Shorts, a presentation with voice-over), use `narrated`. Read [`skills/narrated-video/SKILL.md`](skills/narrated-video/SKILL.md) for the workflow; it is short.
+If you are an AI agent asked to produce a **video** (explainer, devlog, patch notes, trailer, demo, recap, TikTok/Shorts, a presentation with voice-over), use `makevideo`. Read [`skills/makevideo/SKILL.md`](skills/makevideo/SKILL.md) for the workflow; it is short.
 
 ## Contributing to this repo
 
@@ -12,4 +12,4 @@ If you are an AI agent asked to produce a **video** (explainer, devlog, patch no
 
 Performance rule: **nothing may animate continuously on card scenes.** Frame holding (`planFrames`) assumes frames change only right after events (scene start, reveals, caption cues, closing fade). If you add motion, mark its time window in `planFrames`, or the change will be invisible because the held frame gets repeated.
 
-Test with `npm test` (smoke render, no TTS) and `node bin/narrated.js examples/showcase.json`.
+Test with `npm test` (smoke render, no TTS) and `node bin/makevideo.js examples/showcase.json`.

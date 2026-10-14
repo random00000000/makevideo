@@ -1,19 +1,19 @@
 #!/usr/bin/env node
-// narrated CLI — `narrated video.json` renders. `narrated help` for everything else.
+// makevideo CLI — `makevideo video.json` renders. `makevideo help` for everything else.
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { video, check, preview, record, VOICES, THEMES, SCENE_TYPES, FORMATS, NarratedError } from '../src/index.js';
+import { video, check, preview, record, VOICES, THEMES, SCENE_TYPES, FORMATS, SpecError } from '../src/index.js';
 
-const HELP = `narrated — narrated videos from a script. Built for AI agents.
+const HELP = `makevideo — fast, standard video generation for AI agents.
 
-  narrated <spec.json|spec.js>      render the video (mp4 + srt + report.json + jpg)
-  narrated check <spec>             validate only, print estimated length (instant)
-  narrated preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
-  narrated init [file]              write a starter spec (default: video.json)
-  narrated record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
+  makevideo <spec.json|spec.js>      render the video (mp4 + srt + report.json + jpg)
+  makevideo check <spec>             validate only, print estimated length (instant)
+  makevideo preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
+  makevideo init [file]              write a starter spec (default: video.json)
+  makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
-  narrated voices | themes | types  list options
+  makevideo voices | themes | types  list options
 
 Flags:
   -o, --output <file>   override spec.output
@@ -22,15 +22,15 @@ Flags:
   --voice <id>          override voice    --theme <name>  override theme
   --json                machine-readable output (for agents)
 
-Spec reference: https://github.com/random00000000/narrated#spec`;
+Spec reference: https://github.com/random00000000/makevideo#spec`;
 
 const STARTER = {
-  title: 'My narrated video',
+  title: 'My makevideo video',
   theme: 'midnight',
   voice: 'af_heart',
   brand: 'My Project',
   scenes: [
-    { type: 'title', kicker: 'Update', title: 'My narrated video', subtitle: 'Made with narrated', say: 'Here is a quick update, made with narrated.' },
+    { type: 'title', kicker: 'Update', title: 'My makevideo video', subtitle: 'Made with makevideo', say: 'Here is a quick update, made with makevideo.' },
     { type: 'bullets', title: 'What changed', items: ['Faster builds', 'Cleaner UI', 'Fewer crashes'], say: 'Three things changed. Builds are faster. The UI is cleaner. And it crashes less.' },
     { type: 'stat', value: '3x', label: 'faster than last week', say: 'Overall, about three times faster than last week.' },
     { type: 'decisions', title: 'Decisions for you', items: ['Ship on Friday?', 'Keep the old menu?'], say: 'Two decisions for you. Do we ship on Friday? And do we keep the old menu?' },
@@ -53,7 +53,7 @@ const json = !!flags.json;
 const out = (o, text) => console.log(json ? JSON.stringify(o, null, 2) : text);
 
 async function load(file) {
-  if (!file) fail('Missing spec file. Try: narrated init && narrated video.json');
+  if (!file) fail('Missing spec file. Try: makevideo init && makevideo video.json');
   const abs = path.resolve(file);
   if (!fs.existsSync(abs)) fail(`File not found: ${abs}`);
   let spec;
@@ -70,7 +70,7 @@ async function load(file) {
 
 function fail(msg, extra = {}) {
   if (json) console.log(JSON.stringify({ ok: false, error: msg, ...extra }, null, 2));
-  else console.error('narrated: ' + msg + (extra.problems ? '\n' + extra.problems.map((p) => '  - ' + p).join('\n') : ''));
+  else console.error('makevideo: ' + msg + (extra.problems ? '\n' + extra.problems.map((p) => '  - ' + p).join('\n') : ''));
   process.exit(1);
 }
 
@@ -82,7 +82,7 @@ try {
   else if (cmd === 'types') out(SCENE_TYPES, Object.entries(SCENE_TYPES).map(([k, v]) => `${k.padEnd(10)} ${JSON.stringify(v.example)}`).join('\n'));
   else if (cmd === 'formats') out(FORMATS, Object.entries(FORMATS).map(([k, v]) => `${k.padEnd(10)} ${v.join('x')}`).join('\n'));
   else if (cmd === 'record') {
-    if (!rest[0] || !flags.seconds) fail('usage: narrated record <out.mp4> --seconds <n> [--window "Title"] [--fps 30]');
+    if (!rest[0] || !flags.seconds) fail('usage: makevideo record <out.mp4> --seconds <n> [--window "Title"] [--fps 30]');
     if (!json) process.stderr.write(`recording ${flags.seconds}s${flags.window ? ` of "${flags.window}"` : ''}...
 `);
     const r = await record({ output: rest[0], seconds: Number(flags.seconds), fps: Number(flags.fps || 30), window: flags.window });
@@ -91,7 +91,7 @@ try {
     const f = rest[0] || 'video.json';
     if (fs.existsSync(f)) fail(`${f} already exists`);
     fs.writeFileSync(f, JSON.stringify(STARTER, null, 2) + '\n');
-    out({ ok: true, file: f }, `wrote ${f} — edit it, then: narrated ${f}`);
+    out({ ok: true, file: f }, `wrote ${f} — edit it, then: makevideo ${f}`);
   } else if (cmd === 'check') {
     const { spec, baseDir } = await load(rest[0]);
     const r = check(spec, { baseDir });
@@ -111,6 +111,6 @@ try {
     out({ ok: true, ...r }, `\n✔ ${r.output}\n  ${r.duration}s video rendered in ${r.seconds}s · captions ${path.basename(r.srt)} · report ${path.basename(r.report)}`);
   }
 } catch (e) {
-  if (e instanceof NarratedError) fail('invalid spec', { problems: e.problems });
+  if (e instanceof SpecError) fail('invalid spec', { problems: e.problems });
   fail(e.stack || String(e));
 }

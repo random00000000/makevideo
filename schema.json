@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/random00000000/narrated/schema.json",
-  "title": "narrated video spec",
+  "$id": "https://github.com/random00000000/makevideo/schema.json",
+  "title": "makevideo video spec",
   "type": "object",
   "required": [
     "scenes"

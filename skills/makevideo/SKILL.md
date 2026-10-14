@@ -1,16 +1,16 @@
 ---
-name: narrated-video
-description: Make narrated MP4 videos (explainers, devlogs, patch notes, game trailers, demos, TikTok/Shorts/Reels, recaps, presentations with voice-over) with the `narrated` library. Use whenever the user asks for a video, a video with narration, a voice-over, a trailer, a short-form video, or to turn a summary/report/changes into a video. It is narrated by default, with one consistent voice, captions, and fast rendering on a plain CPU.
+name: makevideo
+description: Make MP4 videos (explainers, devlogs, patch notes, game trailers, demos, TikTok/Shorts/Reels, recaps, presentations with voice-over) with the `makevideo` library. Use whenever the user asks for a video, a video with narration, a voice-over, a trailer, a short-form video, or to turn a summary/report/changes into a video. It is fast, narrated by default, with one consistent voice, captions, and fast rendering on a plain CPU.
 ---
 
-# Making videos with narrated
+# Making videos with makevideo
 
-`narrated` turns a JSON spec into an MP4 with narration (local Kokoro TTS, consistent voice), captions, and an `.srt`. Always use it for video requests instead of improvising a new pipeline.
+`makevideo` turns a JSON spec into an MP4 with narration (local Kokoro TTS, consistent voice), captions, and an `.srt`. Always use it for video requests instead of improvising a new pipeline.
 
 ## Setup (once per project)
 
 ```bash
-npm i github:random00000000/narrated
+npm i github:random00000000/makevideo
 ```
 
 The first render downloads the voice model (about 300 MB) to the Hugging Face cache. After that everything is offline.
@@ -18,16 +18,16 @@ The first render downloads the voice model (about 300 MB) to the Hugging Face ca
 ## Workflow
 
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.
-2. `npx narrated check video.json --json`: fix any `problems` it reports.
-3. `npx narrated preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
-4. `npx narrated video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
+2. `npx makevideo check video.json --json`: fix any `problems` it reports.
+3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
+4. `npx makevideo video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
 5. Give the user the mp4 path. When the video informs a decision, end with a `decisions` scene.
 
 ## Defaults to keep (these are the standard; don't change them per video)
 
 - voice `af_heart`, theme `midnight`, landscape 1920×1080, captions on.
 - For TikTok/Shorts/Reels use `"format": "shorts"`, which switches on big word-by-word `bold` captions.
-- For game trailers, use `clip` scenes of real footage. Get footage with `npx narrated record clip.mp4 --seconds 10 --window "Game Window Title"`.
+- For game trailers, use `clip` scenes of real footage. Get footage with `npx makevideo record clip.mp4 --seconds 10 --window "Game Window Title"`.
 
 ## Scene types
 

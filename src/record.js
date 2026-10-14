@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import ffmpegPath from 'ffmpeg-static';
 
-const FFMPEG = process.env.NARRATED_FFMPEG || ffmpegPath;
+const FFMPEG = process.env.MAKEVIDEO_FFMPEG || ffmpegPath;
 
 /**
  * Record the screen (or one window on Windows) to an mp4.

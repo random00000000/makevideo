@@ -458,7 +458,7 @@ function withFont(theme, font) {
   let family = font;
   if (/\.(ttf|otf|woff2?)$/i.test(font)) {
     if (!registered.has(font)) {
-      const name = 'Narrated ' + path.basename(font).replace(/\.[^.]+$/, '');
+      const name = 'makevideo ' + path.basename(font).replace(/\.[^.]+$/, '');
       GlobalFonts.registerFromPath(font, name);
       registered.set(font, name);
     }

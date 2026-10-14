@@ -1,28 +1,28 @@
 {
-  "name": "narrated",
+  "name": "makevideo",
   "version": "0.1.0",
-  "description": "Narrated videos from a JSON script, made for AI agents. Text-to-video with a local neural voice (Kokoro TTS), auto-synced captions, slides, screenshots and gameplay clips, rendered to MP4 by ffmpeg. No browser, no API key, no cloud.",
+  "description": "Fast, standard video generation for AI agents: JSON script in, narrated MP4 out. Text-to-video with a local neural voice (Kokoro TTS), auto-synced captions, slides, screenshots and gameplay clips, rendered to MP4 by ffmpeg. No browser, no API key, no cloud.",
   "type": "module",
   "main": "./src/index.js",
   "exports": { ".": "./src/index.js", "./schema.json": "./schema.json", "./package.json": "./package.json" },
-  "bin": { "narrated": "bin/narrated.js" },
+  "bin": { "makevideo": "bin/makevideo.js" },
   "files": ["src", "bin", "schema.json", "README.md", "AGENTS.md", "llms.txt", "LICENSE", "skills", "examples/*.json", "examples/media"],
   "engines": { "node": ">=18" },
   "scripts": {
     "test": "node test/smoke.js",
-    "example": "node bin/narrated.js examples/showcase.json"
+    "example": "node bin/makevideo.js examples/showcase.json"
   },
   "keywords": [
-    "video", "video-generation", "text-to-video", "narration", "narrated-video", "voiceover", "tts", "text-to-speech",
+    "video", "video-generation", "text-to-video", "narration", "makevideo", "voiceover", "tts", "text-to-speech",
     "kokoro", "kokoro-tts", "ai-agent", "ai-agents", "agent-tools", "llm", "claude", "claude-code", "codex", "mcp",
     "explainer-video", "slideshow", "subtitles", "captions", "srt", "ffmpeg", "mp4", "canvas", "programmatic-video",
     "video-editing", "remotion-alternative", "shorts", "tiktok", "youtube", "devlog", "changelog-video", "demo-video"
   ],
   "author": "Javier Roman Cruz",
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/random00000000/narrated.git" },
-  "homepage": "https://github.com/random00000000/narrated#readme",
-  "bugs": { "url": "https://github.com/random00000000/narrated/issues" },
+  "repository": { "type": "git", "url": "git+https://github.com/random00000000/makevideo.git" },
+  "homepage": "https://github.com/random00000000/makevideo#readme",
+  "bugs": { "url": "https://github.com/random00000000/makevideo/issues" },
   "dependencies": {
     "@napi-rs/canvas": "^1.0.11",
     "ffmpeg-static": "^5.3.0",

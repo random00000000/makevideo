@@ -1,7 +1,7 @@
 /**
- * narrated — narrated videos from a JSON/JS script. Built for AI agents.
+ * makevideo — fast, standard video generation for AI agents (JSON/JS script → narrated MP4).
  *
- *   import { video } from 'narrated';
+ *   import { video } from 'makevideo';
  *   await video({ title: 'Demo', scenes: [{ type: 'title', title: 'Hello', say: 'Hello there.' }] });
  *
  * Pipeline: narration (Kokoro TTS, cached, parallel) → scene timings from real audio length
@@ -15,13 +15,13 @@ import path from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import ffmpegPath from 'ffmpeg-static';
 import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE } from './tts.js';
-import { normalize, sentences, forSpeech, cuesFor, revealTimes, NarratedError, SCENE_TYPES, FORMATS } from './spec.js';
+import { normalize, sentences, forSpeech, cuesFor, revealTimes, SpecError, SCENE_TYPES, FORMATS } from './spec.js';
 import { drawFrame, makeLayout, wordTimes } from './draw.js';
 import { THEMES } from './themes.js';
 
 export { record } from './record.js';
-export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, NarratedError, normalize };
-export const FFMPEG = process.env.NARRATED_FFMPEG || ffmpegPath;
+export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, SpecError, normalize };
+export const FFMPEG = process.env.MAKEVIDEO_FFMPEG || ffmpegPath;
 
 const QUALITY = {
   draft: ['-preset', 'ultrafast', '-crf', '28'],
@@ -30,7 +30,7 @@ const QUALITY = {
 };
 
 /**
- * Render a narrated video.
+ * Render a makevideo video.
  * @param {object} input  the video spec (see README / schema.json)
  * @param {object} [opts]
  * @param {string} [opts.baseDir]  resolve relative paths (src, music, output) against this dir
@@ -43,7 +43,7 @@ export async function video(input, opts = {}) {
   const t0 = Date.now();
   const log = opts.onProgress || (() => {});
   const spec = normalize(input, { baseDir: opts.baseDir });
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'narrated-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-'));
   fs.mkdirSync(path.dirname(spec.output), { recursive: true });
   const speaker = spec.voice ? createSpeaker({ voice: spec.voice, speed: spec.speed, workers: opts.ttsWorkers ?? 3 }) : null;
 
@@ -71,7 +71,7 @@ export async function video(input, opts = {}) {
       Object.assign(tl, { index: i, count: n });
       const ts = Date.now();
       await renderSegment(spec, tl, segs[i]);
-      if (process.env.NARRATED_DEBUG) console.error(`scene ${i} ${s.type} ${tl.frames} frames ${Date.now() - ts} ms`);
+      if (process.env.MAKEVIDEO_DEBUG) console.error(`scene ${i} ${s.type} ${tl.frames} frames ${Date.now() - ts} ms`);
       log({ stage: 'render', message: `scene ${i + 1}/${n} (${s.type})`, progress: ++done / n });
     }), opts.concurrency ?? 2);
     speaker?.close();
@@ -135,7 +135,7 @@ export function check(input, opts = {}) {
     }, 0);
     return { ok: true, problems: [], estimatedSeconds: +est.toFixed(1), scenes: spec.scenes.length, output: spec.output };
   } catch (e) {
-    if (e instanceof NarratedError) return { ok: false, problems: e.problems };
+    if (e instanceof SpecError) return { ok: false, problems: e.problems };
     throw e;
   }
 }
@@ -146,7 +146,7 @@ export function check(input, opts = {}) {
  */
 export async function preview(input, opts = {}) {
   const spec = normalize(input, opts);
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'narrated-prev-'));
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-prev-'));
   try {
     const timeline = estimatedTimeline(spec);
     const total = timeline.reduce((n, t) => n + t.dur, 0);
@@ -225,7 +225,7 @@ async function stillFor(spec, tl, t, tmp) {
   if (tl.scene.type === 'clip') {
     const png = path.join(tmp, `clip${tl.offset}.png`);
     await run(FFMPEG, ['-y', '-ss', String((tl.scene.start || 0) + Math.min(t, 2)), '-i', tl.scene.srcPath, '-frames:v', '1',
-      '-vf', `scale=${spec.width}:${spec.height}:force_original_aspect_ratio=increase,crop=${spec.width}:${spec.height}`, png]);
+      '-vf', fitFilter(tl.scene, spec.width, spec.height), png]);
     const bg = await loadImage(fs.readFileSync(png));
     const over = createCanvas(spec.width, spec.height);
     drawFrame(over.getContext('2d'), tl.scene, t, L);
@@ -246,7 +246,7 @@ async function writePoster(spec, timeline, file) {
 }
 
 /**
- * Which frames can differ from the previous one? Everything in narrated animates for a short
+ * Which frames can differ from the previous one? Everything in makevideo animates for a short
  * window after an event (scene start, list reveal, caption change, closing fade) and is still
  * otherwise. Only "live" frames are drawn and piped; holds are repeated inside ffmpeg by the
  * `loop` filter *after* colour conversion, where a repeated frame costs almost nothing.
@@ -295,9 +295,7 @@ async function renderSegment(spec, tl, file) {
   const enc = ['-c:v', 'libx264', ...QUALITY[spec.quality], '-threads', String(spec.encoderThreads), '-pix_fmt', 'yuv420p', '-r', String(fps), '-frames:v', String(tl.frames), '-an', file];
   let args;
   if (s.type === 'clip') {
-    const fitV = s.fit === 'contain'
-      ? `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black`
-      : `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`;
+    const fitV = fitFilter(s, W, H);
     args = ['-y', '-stream_loop', '-1', '-ss', String(s.start || 0), '-i', s.srcPath, ...raw,
       '-filter_complex', `[0:v]fps=${fps},${fitV},setsar=1[bg];[1:v]format=yuva420p${loops},setpts=N/${fps}/TB[ov];[bg][ov]overlay=format=auto:eof_action=repeat[v]`,
       '-map', '[v]', ...enc];
@@ -321,6 +319,13 @@ ${err}`)))));
   }
   ff.stdin.end();
   await closed;
+}
+
+/** ffmpeg scale filter for a clip: fill-and-crop (default) or letterbox (`fit: "contain"`). */
+function fitFilter(s, W, H) {
+  return s.fit === 'contain'
+    ? `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black`
+    : `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`;
 }
 
 /** Kokoro pads clips with near-silence; trim the tail so pacing feels tight. */

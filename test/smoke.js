@@ -7,7 +7,7 @@ import path from 'node:path';
 import { video, check, preview, SCENE_TYPES } from '../src/index.js';
 import { sentences } from '../src/spec.js';
 
-const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'narrated-test-'));
+const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-test-'));
 const media = path.resolve('examples/media');
 
 // validation is agent-readable
