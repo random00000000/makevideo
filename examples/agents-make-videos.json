@@ -1,0 +1,77 @@
+{
+  "title": "Your agent can make videos now",
+  "output": "out/your-agent-can-make-videos.mp4",
+  "brand": "made by an agent",
+  "theme": {
+    "bg": ["#030409", "#0b0d16"], "glow": "rgba(255,59,92,0.10)",
+    "text": "#f2f4f8", "muted": "#8a90a3", "accent": "#ff3b5c", "accent2": "#7df9ff", "onAccent": "#16030a",
+    "panel": "rgba(255,255,255,0.045)", "panelStrong": "rgba(4,5,10,0.86)",
+    "captionBg": "rgba(0,0,0,0.78)", "captionText": "#ffffff",
+    "codeBg": "#05070e", "codeHl": "rgba(255,59,92,0.16)"
+  },
+  "pronounce": { "Karpathy": "Car path ee", "ElevenLabs": "Eleven Labs" },
+  "scenes": [
+    {
+      "type": "statement", "kicker": "watch closely",
+      "text": "You didn't make this video. *An agent did.*",
+      "say": "You didn't make this video. Nobody did. An agent wrote it, voiced it, and rendered it, on a laptop, while its human did something else."
+    },
+    {
+      "type": "quote",
+      "text": "The output format I am most bullish on is fully custom / bespoke explainer videos.",
+      "by": "Andrej Karpathy, on X, October 2, 2026",
+      "say": "Earlier this month, Andrej Karpathy said the output format he is most bullish on is fully custom explainer videos, generated on any topic."
+    },
+    {
+      "type": "statement",
+      "text": "Walls of text are *losing*.",
+      "say": "He is right. Walls of text are losing. Your agent can already think. Now it needs to show you."
+    },
+    {
+      "type": "bullets", "title": "But every agent improvises",
+      "items": ["A paid voice API, or hunt for a free one", "A new pipeline, built from scratch", "A different voice every time"],
+      "say": "But today, every agent improvises. His example prompt reached for a paid voice API, or a hunt for free local alternatives. Every time, a new pipeline is built from scratch. And every time, a different voice."
+    },
+    {
+      "type": "statement", "kicker": "so we built it",
+      "text": "The *free, local* alternative.",
+      "say": "So here is that free, local alternative. It is called makevideo."
+    },
+    {
+      "type": "code", "title": "Here is all you do",
+      "code": "> make a video about our launch",
+      "say": "And here is all you do. Tell your agent to make a video. That is the whole interface."
+    },
+    {
+      "type": "steps", "title": "Then your agent",
+      "items": ["Writes the script, scene by scene", "Voices it, in the same voice every time", "Renders captions, charts and transitions on a CPU"],
+      "say": "Then your agent takes over. It writes the script, scene by scene. It voices it, in the same voice every time. And it renders captions, charts and transitions, on an ordinary CPU."
+    },
+    {
+      "type": "stat", "value": "0", "label": "API keys. GPUs. Cloud accounts.",
+      "say": "It needs zero API keys, zero GPUs, and zero cloud accounts."
+    },
+    {
+      "type": "statement",
+      "text": "Your agent doesn't just answer anymore. *It presents.*",
+      "say": "Think about what that means. Your agent doesn't just answer anymore. It presents. It decides what you see, what you hear, and in what order."
+    },
+    {
+      "type": "statement",
+      "text": "You just *watched* it happen.",
+      "say": "You just watched it happen."
+    },
+    {
+      "type": "code", "title": "Give your agent a video tool",
+      "code": "# Claude Code\n/plugin marketplace add random00000000/makevideo\n/plugin install makevideo@makevideo\n\n# any MCP client\nnpx -y github:random00000000/makevideo mcp",
+      "highlight": [2, 3],
+      "say": "So go give your agent a video tool. In Claude Code, it is one plugin. Any other MCP client takes one line."
+    },
+    {
+      "type": "outro", "kicker": "free · open source · MIT",
+      "title": "Your agent can make videos now.",
+      "subtitle": "makevideo · github.com/random00000000/makevideo",
+      "say": "Your agent can make videos now. Go ask it for one."
+    }
+  ]
+}
