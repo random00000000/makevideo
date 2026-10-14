@@ -150,7 +150,7 @@ There is also [`AGENTS.md`](AGENTS.md), [`llms.txt`](llms.txt), a JSON Schema at
   "output": "out/my-video.mp4",     // default: <title-slug>.mp4 (relative to spec file)
   "format": "landscape",            // landscape 1920x1080 | portrait/shorts 1080x1920 | square | 720p
   "theme": "midnight",              // midnight | forge | paper | terminal | { ...color overrides }
-  "voice": "af_heart",              // see `makevideo voices`; "fast" = ~10x real-time Piper voice; false = silent
+  "voice": "af_heart",              // the default house voice (warm female); "fast" = ~10x real-time Piper voice (male); false = silent
   "speed": 1,                       // speech rate
   "brand": "My Project",            // small label top-right
   "captions": true,                 // burned-in captions (an .srt is always written)

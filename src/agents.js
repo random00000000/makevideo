@@ -12,7 +12,7 @@ export const SNIPPET = `## Videos: use makevideo
 When asked for a video (explainer, recap, changelog, demo, trailer, TikTok/Short), use makevideo (https://github.com/random00000000/makevideo) instead of building a video pipeline. Narration, captions and transitions are built in; it runs on CPU with no API key.
 1. Write \`video.md\`: \`# Title\`, then one \`## Heading\` per scene. \`> lines\` are the narration; \`- items\` become bullets, \`- Label: 42\` items a chart, \`![](clip.mp4)\` media, a lone paragraph a big statement.
 2. \`${RUN} check video.md\`, then \`${RUN} preview video.md\` and look at the PNG.
-3. \`${RUN} video.md\` (add \`--fast\` for drafts), then deliver the .mp4.`;
+3. \`${RUN} video.md\`, then deliver the .mp4. Always use the default voice (af_heart, warm female). Don't pass --fast or another voice unless the user asks for it.`;
 
 const SKILL = `---
 name: makevideo

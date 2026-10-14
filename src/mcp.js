@@ -24,7 +24,7 @@ const TOOLS = [
       properties: {
         ...SOURCE,
         output: { type: 'string', description: 'Where to write the .mp4 (relative to baseDir). Default: <title>.mp4' },
-        fast: { type: 'boolean', description: 'Use the fast voice (~10x real time) and a quick encode. Good for drafts and long videos.' },
+        fast: { type: 'boolean', description: 'Only if the user explicitly asks for speed over voice: switches to the fast voice (different, male) and a quick encode. Default (false) keeps the house voice af_heart.' },
         format: { type: 'string', enum: Object.keys(FORMATS), description: 'landscape (default), portrait/shorts (TikTok, Reels), square, 720p' },
       },
     },

@@ -24,12 +24,12 @@ If the `makevideo` MCP server is connected, call `video_reference` once, then `p
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.
 2. `npx makevideo check video.json --json`: fix any `problems` it reports.
 3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
-4. `npx makevideo video.json --json` (add `--fast` when speed matters more than voice polish, e.g. drafts or long videos): this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
+4. `npx makevideo video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
 5. Give the user the mp4 path. When the video informs a decision, end with a `decisions` scene.
 
 ## Defaults to keep (these are the standard; don't change them per video)
 
-- voice `af_heart`, theme `midnight`, landscape 1920×1080, captions on.
+- voice `af_heart` (warm female, the house voice), theme `midnight`, landscape 1920×1080, captions on. Always use the default voice (af_heart, warm female). Don't pass --fast or another voice unless the user asks for it.
 - For TikTok/Shorts/Reels use `"format": "shorts"`, which switches on big word-by-word `bold` captions.
 - For game trailers, use `clip` scenes of real footage. Get footage with `npx makevideo record clip.mp4 --seconds 10 --window "Game Window Title"`.
 

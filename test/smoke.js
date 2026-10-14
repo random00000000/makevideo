@@ -5,7 +5,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { video, check, preview, SCENE_TYPES, speakable, fromMarkdown } from '../src/index.js';
-import { sentences } from '../src/spec.js';
+import { sentences, normalize } from '../src/spec.js';
+import { DEFAULT_VOICE } from '../src/tts.js';
+
+// The house voice is af_heart (warm female). It is the product's identity: never change it silently.
+assert.equal(DEFAULT_VOICE, 'af_heart');
+assert.equal(normalize({ scenes: [{ title: 'x', say: 'y' }] }, { checkFiles: false }).voice, 'af_heart');
+assert.equal(normalize(fromMarkdown('# Hi\n> Hello.'), { checkFiles: false }).voice, 'af_heart');
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-test-'));
 const media = path.resolve('examples/media');

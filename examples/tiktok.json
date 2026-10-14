@@ -3,7 +3,6 @@
   "output": "out/tiktok.mp4",
   "format": "shorts",
   "theme": "forge",
-  "voice": "am_puck",
   "captionStyle": "bold",
   "brand": "@makevideo",
   "gif": { "width": 360, "fps": 12, "duration": 8 },
