@@ -1,6 +1,6 @@
 # makevideo
 
-[![GitHub release](https://img.shields.io/github/v/release/random00000000/makevideo)](https://github.com/random00000000/makevideo/releases) [![ci](https://github.com/random00000000/makevideo/actions/workflows/ci.yml/badge.svg)](https://github.com/random00000000/makevideo/actions/workflows/ci.yml) [![MCP server](https://img.shields.io/badge/MCP-server-5ad1ff)](#use-it-from-any-mcp-client) [![docs](https://img.shields.io/badge/docs-guides-ffb547)](https://random00000000.github.io/makevideo/) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757)](#use-it-from-claude-code-plugin) ![CPU only](https://img.shields.io/badge/GPU-not%20needed-success) ![no API key](https://img.shields.io/badge/API%20key-not%20needed-success)
+[![GitHub release](https://img.shields.io/github/v/release/random00000000/makevideo)](https://github.com/random00000000/makevideo/releases) [![ci](https://github.com/random00000000/makevideo/actions/workflows/ci.yml/badge.svg)](https://github.com/random00000000/makevideo/actions/workflows/ci.yml) [![MCP Registry](https://img.shields.io/badge/MCP_Registry-io.github.random00000000%2Fmakevideo-5ad1ff)](https://registry.modelcontextprotocol.io/v0/servers?search=makevideo) [![docs](https://img.shields.io/badge/docs-guides-ffb547)](https://random00000000.github.io/makevideo/) [![license: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE) [![Claude Code plugin](https://img.shields.io/badge/Claude%20Code-plugin-d97757)](#use-it-from-claude-code-plugin) ![CPU only](https://img.shields.io/badge/GPU-not%20needed-success) ![no API key](https://img.shields.io/badge/API%20key-not%20needed-success)
 
 **Fast, standard video generation for AI agents.** One JSON script in, one finished MP4 out, rendered the same way every time. You write scenes, each with a line to say. `makevideo` voices them with one consistent neural voice, times every scene to the real audio, adds captions, and renders an MP4 with a bundled ffmpeg. It runs on the CPU only: no browser, no GPU, no API key and no cloud.
 
@@ -114,6 +114,8 @@ Claude Desktop, Cursor, VS Code, Codex, Windsurf and other MCP clients:
 ```json
 { "mcpServers": { "makevideo": { "command": "npx", "args": ["-y", "github:random00000000/makevideo", "mcp"] } } }
 ```
+
+It's listed in the [official MCP Registry](https://registry.modelcontextprotocol.io/v0/servers?search=makevideo) as `io.github.random00000000/makevideo`, as a Docker image (`ghcr.io/random00000000/makevideo`). Without Node, run `docker run -i --rm -v "$PWD:/work" -w /work ghcr.io/random00000000/makevideo mcp`.
 
 The tools are `make_video` (Markdown or JSON in, MP4 out, with progress notifications), `preview_video` (returns the contact sheet **as an image** the model can look at), `check_video` and `video_reference`. See the [MCP guide](https://random00000000.github.io/makevideo/guides/mcp-video-server.html).
 
@@ -585,6 +587,16 @@ Most clients accept this shape (Claude Desktop `claude_desktop_config.json`, Cur
 ```
 
 Claude Code: `claude mcp add makevideo -- npx -y github:random00000000/makevideo mcp`, or install the plugin (`/plugin marketplace add random00000000/makevideo`), which bundles the server and a skill.
+
+## From the official MCP Registry
+
+makevideo is listed in the official MCP Registry as **`io.github.random00000000/makevideo`**, as a Docker image. Clients that browse the registry can install it from there. To run the image yourself:
+
+```bash
+docker run -i --rm -v "$PWD:/work" -w /work ghcr.io/random00000000/makevideo mcp
+```
+
+Mount the folder that holds your Markdown and media at `/work`; rendered MP4s land there too.
 
 ## Tools
 

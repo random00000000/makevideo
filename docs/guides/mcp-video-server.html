@@ -54,6 +54,11 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:14px;paddin
 }
 </code></pre>
 <p>Claude Code: <code>claude mcp add makevideo -- npx -y github:random00000000/makevideo mcp</code>, or install the plugin (<code>/plugin marketplace add random00000000/makevideo</code>), which bundles the server and a skill.</p>
+<h2>From the official MCP Registry</h2>
+<p>makevideo is listed in the official MCP Registry as <strong><code>io.github.random00000000/makevideo</code></strong>, as a Docker image. Clients that browse the registry can install it from there. To run the image yourself:</p>
+<pre><code class="language-bash">docker run -i --rm -v &quot;$PWD:/work&quot; -w /work ghcr.io/random00000000/makevideo mcp
+</code></pre>
+<p>Mount the folder that holds your Markdown and media at <code>/work</code>; rendered MP4s land there too.</p>
 <h2>Tools</h2>
 <table>
 <thead>
@@ -85,5 +90,5 @@ footer{border-top:1px solid var(--line);color:var(--muted);font-size:14px;paddin
 <li>First renders download the voice model; run <code>npx -y github:random00000000/makevideo setup</code> once on new machines.</li>
 </ul>
 <p><a href="https://random00000000.github.io/makevideo/">← makevideo home</a> · <a href="https://github.com/random00000000/makevideo">GitHub</a></p></article>
-<footer><div class="wrap">makevideo 0.4.0 · MIT · <a href="https://github.com/random00000000/makevideo">github.com/random00000000/makevideo</a> · voice: Kokoro-82M (Apache-2.0), Piper voices (CC0 / public domain) · fonts: Inter, Montserrat, JetBrains Mono (OFL)</div></footer>
+<footer><div class="wrap">makevideo 0.4.1 · MIT · <a href="https://github.com/random00000000/makevideo">github.com/random00000000/makevideo</a> · voice: Kokoro-82M (Apache-2.0), Piper voices (CC0 / public domain) · fonts: Inter, Montserrat, JetBrains Mono (OFL)</div></footer>
 </body></html>

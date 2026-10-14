@@ -28,6 +28,16 @@ Most clients accept this shape (Claude Desktop `claude_desktop_config.json`, Cur
 
 Claude Code: `claude mcp add makevideo -- npx -y github:random00000000/makevideo mcp`, or install the plugin (`/plugin marketplace add random00000000/makevideo`), which bundles the server and a skill.
 
+## From the official MCP Registry
+
+makevideo is listed in the official MCP Registry as **`io.github.random00000000/makevideo`**, as a Docker image. Clients that browse the registry can install it from there. To run the image yourself:
+
+```bash
+docker run -i --rm -v "$PWD:/work" -w /work ghcr.io/random00000000/makevideo mcp
+```
+
+Mount the folder that holds your Markdown and media at `/work`; rendered MP4s land there too.
+
 ## Tools
 
 | tool | what it does |

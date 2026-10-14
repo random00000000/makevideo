@@ -9,7 +9,7 @@ Setup: `npx makevideo setup` (pre-download voice models once)
 Validate: `npx makevideo check video.json --json`
 Preview: `npx makevideo preview video.json` → contact-sheet PNG in about 1 s
 Record: `npx makevideo record clip.mp4 --seconds 10 [--window "Title"]`
-MCP: `npx -y github:random00000000/makevideo mcp` (tools: make_video, preview_video, check_video, video_reference)
+MCP: `npx -y github:random00000000/makevideo mcp` (official MCP Registry: io.github.random00000000/makevideo; Docker: ghcr.io/random00000000/makevideo) (tools: make_video, preview_video, check_video, video_reference)
 Agents: `npx -y github:random00000000/makevideo agents --all` writes "use makevideo for videos" into AGENTS.md / CLAUDE.md / Cursor / Copilot
 API: `import { video, check, preview, record } from 'makevideo'`
 
