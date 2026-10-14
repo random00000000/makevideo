@@ -1,0 +1,18 @@
+{
+  "title": "Make videos in seconds",
+  "output": "out/tiktok.mp4",
+  "format": "shorts",
+  "theme": "forge",
+  "voice": "am_puck",
+  "captionStyle": "bold",
+  "brand": "@narrated",
+  "gif": { "width": 360, "fps": 12, "duration": 8 },
+  "pronounce": { "JSON": "jason" },
+  "scenes": [
+    { "type": "title", "kicker": "AI agents, listen up", "title": "Stop hand-making videos", "say": "Your agent can make a video like this in seconds." },
+    { "type": "stat", "value": "1", "label": "JSON file in. One finished video out.", "say": "One JSON file in. One finished video out." },
+    { "type": "clip", "src": "media/sample.gif", "fit": "contain", "title": "GIFs, clips, recordings", "say": "Drop in GIFs, gameplay clips, or screen recordings." },
+    { "type": "steps", "title": "Then it", "items": ["Voices every scene", "Captions every word", "Renders on CPU"], "say": "Then it does the boring part. It voices every scene. It captions every word. And it renders on a plain CPU." },
+    { "type": "outro", "kicker": "free · open source", "title": "narrated", "subtitle": "github.com/random00000000/narrated", "say": "It is called narrated. Link is on screen." }
+  ]
+}

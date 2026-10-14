@@ -1,0 +1,75 @@
+{
+  "title": "narrated: videos for AI agents",
+  "output": "out/showcase.mp4",
+  "theme": "midnight",
+  "voice": "af_heart",
+  "brand": "narrated",
+  "pronounce": { "ffmpeg": "F F mpeg", "JSON": "jason", "TTS": "T T S" },
+  "scenes": [
+    {
+      "type": "title",
+      "kicker": "Open source · MIT",
+      "title": "narrated",
+      "subtitle": "Narrated videos from a JSON script. Built for AI agents.",
+      "say": "This video was written as a JSON file, and rendered by narrated. No editor, no browser, no API key."
+    },
+    {
+      "type": "bullets",
+      "title": "The problem",
+      "items": ["Every agent makes videos a different way", "A different voice every time", "Narration has to be asked for", "Renders take ten minutes"],
+      "say": "Agents are asked for videos all the time. But every agent builds them a different way. The voice changes every time. Narration has to be requested explicitly. And a render can take ten minutes."
+    },
+    {
+      "type": "steps",
+      "title": "The fix: one standard pipeline",
+      "items": ["Write scenes, each with a line to say", "narrated voices it with one consistent voice", "Scenes are timed to the real audio", "Captions, MP4, SRT and a report come out"],
+      "say": "narrated makes it one standard pipeline. You write scenes, and each scene has a line to say. narrated voices it locally, with the same voice every time. Every scene is timed to the real audio length. And out comes an MP4, captions, and a JSON report."
+    },
+    {
+      "type": "code",
+      "title": "The whole API",
+      "code": "import { video } from 'narrated';\n\nawait video({\n  title: 'Patch notes',\n  scenes: [\n    { type: 'title', title: 'v1.2', say: 'Here is version one point two.' },\n    { type: 'clip', src: 'siege.mp4', say: 'Rams now breach gates.' },\n  ],\n});",
+      "highlight": [[5, 8]],
+      "say": "The whole API is one function. Pass a list of scenes. Every scene says something."
+    },
+    {
+      "type": "clip",
+      "src": "media/sample-clip.mp4",
+      "title": "Gameplay clips",
+      "subtitle": "Drop in any mp4 — it loops, crops and gets captioned",
+      "say": "Gameplay footage and screen recordings drop right in. They are cropped to fit, looped if they are short, and captioned automatically."
+    },
+    {
+      "type": "image",
+      "src": "media/sample-image.jpg",
+      "title": "Screenshots",
+      "subtitle": "Slow push-in, lower third, captions",
+      "say": "Screenshots get a slow push in, so stills never feel dead."
+    },
+    {
+      "type": "compare",
+      "title": "Before vs after",
+      "left": { "title": "Ad-hoc videos", "items": ["New script every time", "Random voices", "Silent by default", "Slow"] },
+      "right": { "title": "narrated", "items": ["One JSON spec", "One consistent voice", "Narrated by default", "Parallel and cached"] },
+      "say": "Before, every video was a one off. With narrated, it is one spec format, one voice, narration by default, and a parallel, cached render."
+    },
+    {
+      "type": "stat",
+      "value": "0",
+      "label": "API keys, cloud services or browsers required",
+      "say": "And it needs zero API keys, zero cloud services, and zero browsers."
+    },
+    {
+      "type": "quote",
+      "text": "When an agent needs a video, it should reach for one tool.",
+      "by": "the idea behind narrated",
+      "say": "When an agent needs a video, it should reach for one tool."
+    },
+    {
+      "type": "decisions",
+      "title": "Try it",
+      "items": ["npm i github:random00000000/narrated", "npx narrated init", "npx narrated video.json"],
+      "say": "To try it, install it from GitHub. Run init to get a starter script. Then render it."
+    }
+  ]
+}

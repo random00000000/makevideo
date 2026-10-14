@@ -1,0 +1,36 @@
+// Built-in themes. Pass `theme: "name"` or `theme: { ...overrides }` (merged over midnight).
+const SANS = '"Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue", Arial, "DejaVu Sans", sans-serif';
+const MONO = '"JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace';
+
+const darkSyntax = { keyword: '#ff9fd0', string: '#b5e48c', number: '#ffcf6b', comment: '#6c7693', fn: '#7cc7ff', punct: '#c3cbe0', text: '#eef1f8' };
+
+export const THEMES = {
+  midnight: {
+    bg: ['#0a0f1f', '#161d3a'], glow: 'rgba(90,120,255,0.18)',
+    text: '#f4f6fb', muted: '#9aa5c4', accent: '#ffb547', accent2: '#5ad1ff', onAccent: '#1a1206',
+    panel: 'rgba(255,255,255,0.06)', panelStrong: 'rgba(8,12,26,0.82)',
+    captionBg: 'rgba(4,7,16,0.82)', captionText: '#ffffff',
+    codeBg: '#0b1124', codeHl: 'rgba(255,181,71,0.16)', syntax: darkSyntax, font: SANS, mono: MONO,
+  },
+  forge: {
+    bg: ['#120c09', '#2a1a10'], glow: 'rgba(255,110,30,0.20)',
+    text: '#fbf3ea', muted: '#c2a58f', accent: '#ff7a1a', accent2: '#ffd166', onAccent: '#1d0d02',
+    panel: 'rgba(255,220,190,0.07)', panelStrong: 'rgba(18,10,6,0.84)',
+    captionBg: 'rgba(12,6,3,0.84)', captionText: '#ffffff',
+    codeBg: '#170e09', codeHl: 'rgba(255,122,26,0.18)', syntax: darkSyntax, font: SANS, mono: MONO,
+  },
+  paper: {
+    bg: ['#f8f5ef', '#ece5d8'], glow: 'rgba(255,170,90,0.20)',
+    text: '#1d1b18', muted: '#6b6459', accent: '#d9480f', accent2: '#1c7ed6', onAccent: '#ffffff',
+    panel: 'rgba(0,0,0,0.05)', panelStrong: 'rgba(255,255,255,0.9)',
+    captionBg: 'rgba(20,18,15,0.84)', captionText: '#ffffff',
+    codeBg: '#1e1d1b', codeHl: 'rgba(217,72,15,0.22)', syntax: darkSyntax, font: SANS, mono: MONO,
+  },
+  terminal: {
+    bg: ['#030806', '#06140d'], glow: 'rgba(40,255,140,0.10)',
+    text: '#d8ffe8', muted: '#6fa88a', accent: '#39ff88', accent2: '#4cc9f0', onAccent: '#00140a',
+    panel: 'rgba(57,255,136,0.06)', panelStrong: 'rgba(2,10,6,0.86)',
+    captionBg: 'rgba(0,0,0,0.85)', captionText: '#d8ffe8',
+    codeBg: '#020604', codeHl: 'rgba(57,255,136,0.14)', syntax: darkSyntax, font: SANS, mono: MONO,
+  },
+};

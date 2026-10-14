@@ -1,0 +1,254 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/random00000000/narrated/schema.json",
+  "title": "narrated video spec",
+  "type": "object",
+  "required": [
+    "scenes"
+  ],
+  "properties": {
+    "title": {
+      "type": "string"
+    },
+    "output": {
+      "type": "string"
+    },
+    "format": {
+      "enum": [
+        "landscape",
+        "16:9",
+        "portrait",
+        "9:16",
+        "shorts",
+        "square",
+        "1:1",
+        "720p"
+      ]
+    },
+    "width": {
+      "type": "integer"
+    },
+    "height": {
+      "type": "integer"
+    },
+    "fps": {
+      "type": "integer",
+      "default": 30
+    },
+    "theme": {
+      "oneOf": [
+        {
+          "enum": [
+            "midnight",
+            "forge",
+            "paper",
+            "terminal"
+          ]
+        },
+        {
+          "type": "object"
+        }
+      ]
+    },
+    "voice": {
+      "oneOf": [
+        {
+          "type": "string"
+        },
+        {
+          "const": false
+        }
+      ],
+      "default": "af_heart"
+    },
+    "speed": {
+      "type": "number",
+      "default": 1
+    },
+    "brand": {
+      "type": "string"
+    },
+    "captions": {
+      "type": "boolean",
+      "default": true
+    },
+    "captionStyle": {
+      "enum": [
+        "classic",
+        "bold",
+        "none"
+      ]
+    },
+    "font": {
+      "type": "string",
+      "description": "installed font family or path to .ttf/.otf"
+    },
+    "progressBar": {
+      "type": "boolean"
+    },
+    "music": {
+      "type": "string"
+    },
+    "musicVolume": {
+      "type": "number"
+    },
+    "pronounce": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "quality": {
+      "enum": [
+        "draft",
+        "standard",
+        "high"
+      ]
+    },
+    "gif": {
+      "oneOf": [
+        {
+          "type": "boolean"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "width": {
+              "type": "integer"
+            },
+            "fps": {
+              "type": "integer"
+            },
+            "start": {
+              "type": "number"
+            },
+            "duration": {
+              "type": "number"
+            }
+          }
+        }
+      ]
+    },
+    "scenes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "enum": [
+              "title",
+              "bullets",
+              "steps",
+              "decisions",
+              "image",
+              "clip",
+              "code",
+              "stat",
+              "quote",
+              "compare",
+              "outro"
+            ]
+          },
+          "say": {
+            "type": "string",
+            "description": "Narration for this scene. Scene length follows the audio."
+          },
+          "caption": {
+            "type": "string",
+            "description": "Override caption text"
+          },
+          "duration": {
+            "type": "number",
+            "description": "Minimum seconds (required when there is no say)"
+          },
+          "title": {
+            "type": "string"
+          },
+          "subtitle": {
+            "type": "string"
+          },
+          "kicker": {
+            "type": "string"
+          },
+          "items": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "highlight": {},
+          "src": {
+            "type": "string",
+            "description": "image (png/jpg/webp) or clip (mp4/webm/mov/gif), relative to the spec file"
+          },
+          "start": {
+            "type": "number",
+            "description": "clip start offset, seconds"
+          },
+          "fit": {
+            "enum": [
+              "cover",
+              "contain"
+            ]
+          },
+          "zoom": {
+            "type": "boolean"
+          },
+          "code": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "number"
+            ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "countUp": {
+            "type": "boolean"
+          },
+          "text": {
+            "type": "string"
+          },
+          "by": {
+            "type": "string"
+          },
+          "left": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "right": {
+            "type": "object",
+            "properties": {
+              "title": {
+                "type": "string"
+              },
+              "items": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

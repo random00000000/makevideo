@@ -1,0 +1,19 @@
+# narrated
+
+> Narrated videos from a JSON script, made for AI agents. Node.js library and CLI: scenes with `say` text are voiced locally by Kokoro TTS (one consistent voice), timed to the real audio, captioned, and rendered to MP4 by ffmpeg on the CPU. No browser, GPU, API key or cloud needed. It supports slides, screenshots, video/GIF clips, code, stats, quotes, comparisons, TikTok-style word captions, GIF export and screen recording.
+
+Install: `npm i github:random00000000/narrated`
+Render: `npx narrated video.json` → video.mp4, video.srt, video.json (report), video.jpg (poster)
+Validate: `npx narrated check video.json --json`
+Preview: `npx narrated preview video.json` → contact-sheet PNG in about 1 s
+Record: `npx narrated record clip.mp4 --seconds 10 [--window "Title"]`
+API: `import { video, check, preview, record } from 'narrated'`
+
+## Docs
+- [README](https://github.com/random00000000/narrated#readme): spec reference, scene types, performance
+- [Agent skill](https://github.com/random00000000/narrated/blob/main/skills/narrated-video/SKILL.md): the workflow for agents
+- [JSON Schema](https://github.com/random00000000/narrated/blob/main/schema.json)
+- [Examples](https://github.com/random00000000/narrated/tree/main/examples): showcase.json (landscape), tiktok.json (shorts)
+
+## Minimal spec
+{"title":"Demo","scenes":[{"type":"title","title":"Hello","say":"Hello there."},{"type":"bullets","title":"Points","items":["One","Two"],"say":"Two points. One. And two."}]}
