@@ -18,3 +18,15 @@ jobs:
           node-version: ${{ matrix.node }}
       - run: npm ci
       - run: npm test
+  docker-mcp:
+    # what MCP directories (e.g. Glama) check: the image starts and answers introspection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build -t makevideo .
+      - run: |
+          printf '%s\n%s\n' \
+            '{"jsonrpc":"2.0","id":1,"method":"initialize","params":{"protocolVersion":"2025-06-18","capabilities":{},"clientInfo":{"name":"ci","version":"0"}}}' \
+            '{"jsonrpc":"2.0","id":2,"method":"tools/list","params":{}}' \
+            | docker run -i --rm makevideo | tee out.jsonl
+          grep -q '"make_video"' out.jsonl
