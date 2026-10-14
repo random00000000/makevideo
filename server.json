@@ -3,16 +3,45 @@
   "name": "io.github.random00000000/makevideo",
   "title": "makevideo",
   "description": "Narrated, captioned MP4 videos from Markdown or JSON. Local voice, CPU-only, no API key.",
-  "repository": { "url": "https://github.com/random00000000/makevideo", "source": "github" },
+  "repository": {
+    "url": "https://github.com/random00000000/makevideo",
+    "source": "github"
+  },
   "websiteUrl": "https://random00000000.github.io/makevideo/",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "packages": [
     {
-      "registryType": "npm",
-      "identifier": "makevideo",
-      "version": "0.4.0",
-      "transport": { "type": "stdio" },
-      "packageArguments": [{ "type": "positional", "value": "mcp" }]
+      "registryType": "oci",
+      "identifier": "ghcr.io/random00000000/makevideo:0.4.1",
+      "transport": {
+        "type": "stdio"
+      },
+      "runtimeHint": "docker",
+      "runtimeArguments": [
+        {
+          "type": "named",
+          "name": "-v",
+          "value": "{workdir}:/work",
+          "description": "Folder for your Markdown/JSON, media and the rendered MP4",
+          "variables": {
+            "workdir": {
+              "description": "Absolute path of your project folder",
+              "isRequired": true
+            }
+          }
+        },
+        {
+          "type": "named",
+          "name": "-w",
+          "value": "/work"
+        }
+      ],
+      "packageArguments": [
+        {
+          "type": "positional",
+          "value": "mcp"
+        }
+      ]
     }
   ]
 }

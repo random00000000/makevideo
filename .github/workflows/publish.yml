@@ -1,40 +1,67 @@
-# On every GitHub release: publish to npm (if the NPM_TOKEN secret exists), then list the
-# MCP server in the official MCP Registry (GitHub OIDC proves the io.github.* namespace).
+# On every GitHub release:
+#   1. test
+#   2. push the MCP server image to ghcr.io (GitHub's own token; no secrets needed)
+#   3. list it in the official MCP Registry (GitHub OIDC proves the io.github.* namespace)
+#   4. publish to npm too, when an NPM_TOKEN secret exists
 name: publish
 on:
   release:
     types: [published]
   workflow_dispatch:
 jobs:
-  publish:
+  test:
     runs-on: ubuntu-latest
-    permissions:
-      id-token: write   # npm provenance + MCP Registry OIDC login
-      contents: read
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          registry-url: https://registry.npmjs.org
+        with: { node-version: 22 }
       - run: npm ci
       - run: npm test
-      - name: Publish to npm
-        id: npm
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: versions agree (package.json, server.json, image tag)
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          if npm view "makevideo@$VERSION" version >/dev/null 2>&1; then
-            echo "makevideo@$VERSION already on npm"; echo "ready=true" >> "$GITHUB_OUTPUT"
-          elif [ -n "$NODE_AUTH_TOKEN" ]; then
-            npm publish --provenance --access public && echo "ready=true" >> "$GITHUB_OUTPUT"
-          else
-            echo "::notice::NPM_TOKEN secret not set: skipping npm and MCP Registry. Add it under Settings > Secrets > Actions."
-          fi
-      - name: Publish to the MCP Registry
-        if: steps.npm.outputs.ready == 'true'
+          V=$(node -p "require('./package.json').version")
+          node -e "const s=require('./server.json'); if (s.version!=='$V' || !s.packages[0].identifier.endsWith(':$V')) { console.error('server.json must be version $V'); process.exit(1) }"
+
+  image:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: { contents: read, packages: write }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with: { registry: ghcr.io, username: "${{ github.actor }}", password: "${{ secrets.GITHUB_TOKEN }}" }
+      - id: v
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/random00000000/makevideo:${{ steps.v.outputs.version }}
+            ghcr.io/random00000000/makevideo:latest
+
+  mcp-registry:
+    needs: image
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - run: curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
+      - run: ./mcp-publisher login github-oidc
+      - run: ./mcp-publisher publish
+
+  npm:
+    needs: test
+    runs-on: ubuntu-latest
+    permissions: { id-token: write, contents: read }
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, registry-url: "https://registry.npmjs.org" }
+      - run: npm ci
+      - env: { NODE_AUTH_TOKEN: "${{ secrets.NPM_TOKEN }}" }
         run: |
-          curl -sL "https://github.com/modelcontextprotocol/registry/releases/latest/download/mcp-publisher_linux_amd64.tar.gz" | tar xz mcp-publisher
-          ./mcp-publisher login github-oidc
-          ./mcp-publisher publish
+          V=$(node -p "require('./package.json').version")
+          if npm view "makevideo@$V" version >/dev/null 2>&1; then echo "already on npm";
+          elif [ -n "$NODE_AUTH_TOKEN" ]; then npm publish --provenance --access public;
+          else echo "::notice::NPM_TOKEN not set: skipped npm (the MCP Registry listing uses the ghcr.io image instead)"; fi
