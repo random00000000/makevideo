@@ -19,7 +19,8 @@ API: `import { video, check, preview, record } from 'makevideo'`
 - [README](https://github.com/random00000000/makevideo#readme): spec reference, scene types, performance
 - [Agent skill](https://github.com/random00000000/makevideo/blob/main/skills/makevideo/SKILL.md): the workflow for agents
 - [JSON Schema](https://github.com/random00000000/makevideo/blob/main/schema.json)
-- [Examples](https://github.com/random00000000/makevideo/tree/main/examples): showcase.json (landscape), tiktok.json (shorts), why-makevideo.json (explainer), changelog-0.1.json (changelog/recap)
+- [Examples](https://github.com/random00000000/makevideo/tree/main/examples): agents-make-videos.json (pitch), showcase.json (landscape), tiktok.json (shorts), why-makevideo.json (explainer), whats-new-0.4.md (Markdown changelog), reddit-demo.md (short demo)
+- [Launch kit](https://github.com/random00000000/makevideo/tree/main/launch): launch posts and the distribution playbook
 
 ## Minimal spec
 {"title":"Demo","scenes":[{"type":"title","title":"Hello","say":"Hello there."},{"type":"bullets","title":"Points","items":["One","Two"],"say":"Two points. One. And two."}]}

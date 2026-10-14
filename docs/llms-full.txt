@@ -6,13 +6,13 @@
 
 [![poster](docs/showcase.jpg)](docs/showcase.mp4)
 
-▶ **[Watch the 87-second showcase](docs/showcase.mp4)**, rendered from [`examples/showcase.json`](examples/showcase.json) on a laptop CPU, faster than it plays.
+▶ **[Your agent can make videos now](docs/your-agent-can-make-videos.mp4)** (1:39, written, voiced and rendered by an agent from [one JSON file](examples/agents-make-videos.json)) · ▶ **[Watch the 87-second showcase](docs/showcase.mp4)**, rendered from [`examples/showcase.json`](examples/showcase.json) on a laptop CPU, faster than it plays.
 
 <img src="docs/tiktok.gif" width="220" align="right" alt="TikTok-style demo">
 
 **Short-form too:** `"format": "shorts"` gives 1080×1920 with big word-by-word captions. ▶ [Watch the TikTok-style demo](docs/tiktok.mp4) ([`examples/tiktok.json`](examples/tiktok.json)): 23 s of video rendered in 15 s, plus an auto-exported GIF.
 
-**More examples, all made with makevideo:** ▶ [What's new in 0.4: closer to every agent](docs/whats-new-0.4.mp4) ([spec](examples/whats-new-0.4.md)) · ▶ [What's new in 0.3: speed](docs/whats-new-0.3.mp4) ([spec](examples/whats-new-0.3.md)) · ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
+**More examples, all made with makevideo:** ▶ [59-second demo](docs/makevideo-reddit.mp4) ([spec](examples/reddit-demo.md)) · ▶ [The house voice](examples/house-voice.md) · ▶ [Distribution recap](examples/recap-distribution.md) · ▶ [What's new in 0.4: closer to every agent](docs/whats-new-0.4.mp4) ([spec](examples/whats-new-0.4.md)) · ▶ [What's new in 0.3: speed](docs/whats-new-0.3.mp4) ([spec](examples/whats-new-0.3.md)) · ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
 
 **What it does:** narrated slides · **automatic transitions** (push, slide, zoom, wipe) · kinetic **statements** · animated **charts** · **split** media + text · **write Markdown, get a video** · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
 <br clear="right">

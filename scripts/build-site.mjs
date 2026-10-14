@@ -78,7 +78,7 @@ const landing = `
 <h1>Fast, standard video generation for AI agents.</h1>
 <p class="lede">Write a video as Markdown or JSON. makevideo voices it with a local neural voice, times every scene to the real audio, adds captions and transitions, and renders an MP4 — on a plain CPU, faster than it plays.</p>
 <div class="cta"><a class="btn" href="${REPO}">Get it on GitHub</a><a class="btn ghost" href="#start">Quick start</a><a class="btn ghost" href="guides/mcp-video-server.html">MCP server</a></div>
-<video controls preload="metadata" poster="showcase.jpg" src="whats-new-0.4.mp4"></video>
+<video controls preload="metadata" poster="showcase.jpg" src="your-agent-can-make-videos.mp4"></video>
 </div></section>
 <section class="wrap" id="start">
 <h2>Quick start</h2>
