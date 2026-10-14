@@ -7,7 +7,7 @@ import { video, check, preview, record, VOICES, THEMES, SCENE_TYPES, FORMATS, Na
 
 const HELP = `narrated — narrated videos from a script. Built for AI agents.
 
-  narrated <spec.json|spec.js>      render the video (mp4 + srt + json + jpg)
+  narrated <spec.json|spec.js>      render the video (mp4 + srt + report.json + jpg)
   narrated check <spec>             validate only, print estimated length (instant)
   narrated preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
   narrated init [file]              write a starter spec (default: video.json)

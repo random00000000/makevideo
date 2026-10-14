@@ -111,7 +111,7 @@ export async function video(input, opts = {}) {
     }
     const scenes = timeline.map((tl, i) => ({ index: i, type: tl.scene.type, title: tl.scene.title ?? null, start: +tl.offset.toFixed(3), duration: +tl.dur.toFixed(3), say: tl.scene.say ?? null }));
     const result = {
-      output: spec.output, srt: base + '.srt', report: base + '.json', poster, gif,
+      output: spec.output, srt: base + '.srt', report: base + '.report.json', poster, gif,
       duration: +total.toFixed(3), seconds: +((Date.now() - t0) / 1000).toFixed(1),
       width: spec.width, height: spec.height, fps: spec.fps, voice: spec.voice, scenes,
     };

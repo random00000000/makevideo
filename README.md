@@ -16,7 +16,7 @@
 ```bash
 npm i github:random00000000/narrated
 npx narrated init            # writes video.json
-npx narrated video.json      # → video.mp4 + video.srt + video.json + video.jpg
+npx narrated video.json      # → video.mp4 + video.srt + video.report.json + video.jpg
 ```
 
 ```js
