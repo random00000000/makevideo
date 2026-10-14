@@ -1,6 +1,6 @@
 {
   "name": "makevideo",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Fast, standard video generation for AI agents: JSON script in, narrated MP4 out. Text-to-video with a local neural voice (Kokoro TTS), auto-synced captions, slides, screenshots and gameplay clips, rendered to MP4 by ffmpeg. No browser, no API key, no cloud.",
   "type": "module",
   "main": "./src/index.js",
@@ -70,7 +70,11 @@
     "markdown-to-video",
     "transitions",
     "kinetic-typography",
-    "animated-charts"
+    "animated-charts",
+    "piper",
+    "piper-tts",
+    "fast-tts",
+    "cpu-only"
   ],
   "author": "Javier Roman Cruz",
   "license": "MIT",
@@ -85,7 +89,9 @@
   "dependencies": {
     "@napi-rs/canvas": "^1.0.11",
     "ffmpeg-static": "^5.3.0",
-    "kokoro-js": "^1.2.1"
+    "kokoro-js": "^1.2.1",
+    "onnxruntime-node": "^1.21.0",
+    "phonemizer": "^1.2.1"
   },
   "publishConfig": {
     "access": "public"

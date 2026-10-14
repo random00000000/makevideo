@@ -6,13 +6,13 @@
 
 [![poster](docs/showcase.jpg)](docs/showcase.mp4)
 
-▶ **[Watch the 87-second showcase](docs/showcase.mp4)**, rendered from [`examples/showcase.json`](examples/showcase.json) in about **35 seconds on a laptop CPU**.
+▶ **[Watch the 87-second showcase](docs/showcase.mp4)**, rendered from [`examples/showcase.json`](examples/showcase.json) on a laptop CPU, faster than it plays.
 
 <img src="docs/tiktok.gif" width="220" align="right" alt="TikTok-style demo">
 
 **Short-form too:** `"format": "shorts"` gives 1080×1920 with big word-by-word captions. ▶ [Watch the TikTok-style demo](docs/tiktok.mp4) ([`examples/tiktok.json`](examples/tiktok.json)): 23 s of video rendered in 15 s, plus an auto-exported GIF.
 
-**More examples, all made with makevideo:** ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
+**More examples, all made with makevideo:** ▶ [What's new in 0.3: speed](docs/whats-new-0.3.mp4) ([spec](examples/whats-new-0.3.md)) · ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
 
 **What it does:** narrated slides · **automatic transitions** (push, slide, zoom, wipe) · kinetic **statements** · animated **charts** · **split** media + text · **write Markdown, get a video** · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
 <br clear="right">
@@ -21,6 +21,7 @@
 npm i github:random00000000/makevideo
 npx makevideo init            # writes video.json
 npx makevideo video.json      # → video.mp4 + video.srt + video.report.json + video.jpg
+npx makevideo video.json --fast   # same, about 3x faster on a first render
 ```
 
 ```js
@@ -126,7 +127,7 @@ There is also [`AGENTS.md`](AGENTS.md), [`llms.txt`](llms.txt), a JSON Schema at
   "output": "out/my-video.mp4",     // default: <title-slug>.mp4 (relative to spec file)
   "format": "landscape",            // landscape 1920x1080 | portrait/shorts 1080x1920 | square | 720p
   "theme": "midnight",              // midnight | forge | paper | terminal | { ...color overrides }
-  "voice": "af_heart",              // see `makevideo voices`; false = silent
+  "voice": "af_heart",              // see `makevideo voices`; "fast" = ~10x real-time Piper voice; false = silent
   "speed": 1,                       // speech rate
   "brand": "My Project",            // small label top-right
   "captions": true,                 // burned-in captions (an .srt is always written)
@@ -216,14 +217,31 @@ await video({ format: 'shorts', theme: 'forge', scenes: [
 
 `makevideo` is built to run on a CPU, because most agent sandboxes and cloud runners have no GPU.
 
-- **Frame holding.** Slides are still most of the time. `makevideo` works out which frames can change (entrances, list reveals, caption changes, fades) and draws and pipes only those. Held frames are repeated inside ffmpeg *after* color conversion, where a repeated frame is nearly free to encode. On the showcase, this cut render time from 160 s to 35 s.
-- **Overlapped pipeline.** Speech is generated in a pool of Kokoro processes. Each scene starts rendering as soon as its own narration exists.
-- **Caching.** Every sentence's audio is cached by (model, voice, speed, text) in `~/.cache/makevideo` (override with `MAKEVIDEO_CACHE`). When you re-render after a layout tweak, the voice step is skipped.
-- **No browser.** Frames are drawn with Skia (`@napi-rs/canvas`), not headless Chrome.
+**Need it fast? Add `--fast`** (or `"voice": "fast"`). That switches to a Piper voice that speaks at about **10× real time on 2 CPU threads**. Kokoro, the default, is about 2× real time using every core. The fast voice sounds less natural, so it's best for drafts, long videos and fast iteration.
 
-Measured on an i7-10750H laptop (6 cores, no GPU used): the 87 s, 10-scene showcase renders in **about 35 s** with cached speech, or about 96 s on a cold first run, where generating the speech takes most of the time (Kokoro runs at about 1.5× real time per process on this CPU). The first-ever run also downloads the voice model (about 300 MB, once).
+```bash
+npx makevideo video.md --fast   # fastest: Piper voice + quick encode
+npx makevideo setup             # once per machine/image: pre-download voice models
+```
 
-Knobs: `quality: "draft"` (fastest encode), `format: "720p"`, `MAKEVIDEO_THREADS` (x264 threads per scene), `video(spec, { concurrency, ttsWorkers })`.
+Measured with the same 74 s, 8-scene video ([`examples/whats-new-0.2.md`](examples/whats-new-0.2.md)) on an i7-10750H laptop (6 cores, no GPU), with the machine about 35% busy with other work. Both versions ran back to back:
+
+| | v0.2.0 | v0.3.0 |
+|---|---|---|
+| first render (no cached speech) | 119.9 s | **81.0 s** |
+| first render with `--fast` voice | n/a | **36.3 s** |
+| re-render (speech cached) | 41.0 s | **28.4 s** |
+
+How it gets there:
+
+- **Frame holding.** Slides are still most of the time. Only frames that can change are drawn. Each scene type knows exactly how long its entrance lasts, so a typical scene has about 30% "live" frames instead of 50%. Held frames are repeated inside ffmpeg after colour conversion, where they cost almost nothing.
+- **Render processes.** Scenes are drawn and encoded in a pool of worker processes (one canvas and one ffmpeg each), so drawing uses many cores instead of Node's one main thread. The workers start while speech is still being generated.
+- **Tuned speech.** Kokoro runs as 1–3 processes with ONNX threads pinned to cores/2/N, because processes that each grab every core fight each other. Idle ONNX threads sleep instead of spinning, leaving the CPU to the renderer.
+- **Overlapped pipeline.** Each scene renders as soon as its own narration exists. The poster, GIF and final mux run side by side.
+- **Caching.** Every sentence's audio is cached by (engine, voice, speed, text) in `~/.cache/makevideo` (override with `MAKEVIDEO_CACHE`). Re-renders after a layout tweak skip the voice entirely.
+- **Measured, not guessed.** Each of these came from a profile. Some ideas lost: film grain (pattern fills cost 80 ms per frame), transparent content layers (slower in Skia), and more x264 threads (2 per scene beats 4).
+
+Knobs: `--fast`, `quality: "draft"`, `format: "720p"`, `MAKEVIDEO_THREADS` (x264 threads per scene, default 2), `video(spec, { concurrency, ttsWorkers, ttsThreads })`, and `MAKEVIDEO_DEBUG=1` for per-scene profiles.
 
 ## How it works
 

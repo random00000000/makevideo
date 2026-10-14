@@ -3,7 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import { video, check, preview, record, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
+import { video, check, preview, record, setup, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
 
 const HELP = `makevideo — fast, standard video generation for AI agents.
 
@@ -13,12 +13,14 @@ const HELP = `makevideo — fast, standard video generation for AI agents.
   makevideo init [file]              write a starter spec (default: video.json)
   makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
+  makevideo setup [voices...]       pre-download voice models (do this once in CI/cloud images)
   makevideo voices | themes | types | transitions  list options
 
 Flags:
   -o, --output <file>   override spec.output
   --draft               fastest encode (ultrafast, lower quality) for iteration
   --format <f>          landscape | portrait | square | 720p
+  --fast                use the fast voice (~10x real time on CPU) + quick encode
   --voice <id>          override voice    --theme <name>  override theme
   --json                machine-readable output (for agents)
 
@@ -65,6 +67,7 @@ async function load(file) {
   else spec = JSON.parse(fs.readFileSync(abs, 'utf8'));
   for (const k of ['output', 'format', 'voice', 'theme', 'quality']) if (flags[k]) spec[k] = flags[k];
   if (flags.draft) spec.quality = 'draft';
+  if (flags.fast) { spec.voice = 'fast'; spec.quality = 'draft'; }
   if (!spec.output) spec.output = path.basename(abs).replace(/\.[^.]+$/, '') + '.mp4';
   return { spec, baseDir: path.dirname(abs) };
 }
@@ -81,7 +84,11 @@ try {
   else if (cmd === 'voices') out(VOICES, Object.entries(VOICES).map(([k, v]) => `${k.padEnd(12)} ${v}`).join('\n'));
   else if (cmd === 'themes') out(Object.keys(THEMES), Object.keys(THEMES).join('\n'));
   else if (cmd === 'types') out(SCENE_TYPES, Object.entries(SCENE_TYPES).map(([k, v]) => `${k.padEnd(10)} ${JSON.stringify(v.example)}`).join('\n'));
-  else if (cmd === 'transitions') out(TRANSITIONS, TRANSITIONS.join('\n'));
+  else if (cmd === 'setup') {
+    // pre-download voice models so the first render doesn't wait on a ~330 MB download
+    await setup({ voices: rest.length ? rest : undefined, log: (m) => !json && console.error(m) });
+    out({ ok: true }, 'voices ready');
+  } else if (cmd === 'transitions') out(TRANSITIONS, TRANSITIONS.join('\n'));
   else if (cmd === 'formats') out(FORMATS, Object.entries(FORMATS).map(([k, v]) => `${k.padEnd(10)} ${v.join('x')}`).join('\n'));
   else if (cmd === 'record') {
     if (!rest[0] || !flags.seconds) fail('usage: makevideo record <out.mp4> --seconds <n> [--window "Title"] [--fps 30]');

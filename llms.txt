@@ -4,6 +4,8 @@
 
 Install: `npm i github:random00000000/makevideo`
 Render: `npx makevideo video.json` (or `video.md`) → video.mp4, video.srt, video.report.json, video.jpg (poster)
+Fast: `npx makevideo video.json --fast` (Piper voice, ~10x real time on CPU)
+Setup: `npx makevideo setup` (pre-download voice models once)
 Validate: `npx makevideo check video.json --json`
 Preview: `npx makevideo preview video.json` → contact-sheet PNG in about 1 s
 Record: `npx makevideo record clip.mp4 --seconds 10 [--window "Title"]`

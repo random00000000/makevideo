@@ -12,23 +12,19 @@ import { spawn } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { createCanvas, loadImage } from '@napi-rs/canvas';
-import ffmpegPath from 'ffmpeg-static';
-import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE } from './tts.js';
-import { normalize, sentences, forSpeech, cuesFor, revealTimes, SpecError, SCENE_TYPES, FORMATS, lint, speakable } from './spec.js';
+import { createCanvas } from '@napi-rs/canvas';
+import { FFMPEG, run, stillFor, writePoster } from './render.js';
+import { createRenderPool } from './render-pool.js';
+import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE, setup } from './tts.js';
+import { normalize, sentences, forSpeech, cuesFor, SpecError, SCENE_TYPES, FORMATS, lint, speakable } from './spec.js';
 import { fromMarkdown } from './markdown.js';
-import { drawFrame, makeLayout, wordTimes, chooseTransition, isVideoScene, splitRect, TRANSITIONS } from './draw.js';
+import { chooseTransition, TRANSITIONS } from './draw.js';
 import { THEMES } from './themes.js';
 
 export { record } from './record.js';
+export { setup };
 export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError, normalize, lint, speakable, fromMarkdown };
-export const FFMPEG = process.env.MAKEVIDEO_FFMPEG || ffmpegPath;
-
-const QUALITY = {
-  draft: ['-preset', 'ultrafast', '-crf', '28'],
-  standard: ['-preset', 'veryfast', '-crf', '20'],
-  high: ['-preset', 'medium', '-crf', '17'],
-};
+export { FFMPEG, planFrames } from './render.js';
 
 /**
  * Render a makevideo video.
@@ -47,7 +43,10 @@ export async function video(input, opts = {}) {
   for (const w of lint(spec)) log({ stage: 'lint', message: w });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-'));
   fs.mkdirSync(path.dirname(spec.output), { recursive: true });
-  const speaker = spec.voice ? createSpeaker({ voice: spec.voice, speed: spec.speed, workers: opts.ttsWorkers ?? 3 }) : null;
+  const cores = os.cpus().length;
+  const speaker = spec.voice ? createSpeaker({ voice: spec.voice, speed: spec.speed, ...ttsShape(cores, opts) }) : null;
+  // scene renders run in worker processes: one canvas + one ffmpeg each
+  const renderer = createRenderPool(opts.concurrency ?? Math.max(2, Math.min(6, Math.floor(cores / 3))));
 
   try {
     // 1) narration — every sentence queued at once; the TTS pool works through them in parallel
@@ -74,17 +73,17 @@ export async function video(input, opts = {}) {
       const prev = i > 0 ? spec.scenes[i - 1] : null;
       tl.transition = chooseTransition(s, prev, spec.transition);
       tl.nextDip = i < n - 1 && chooseTransition(spec.scenes[i + 1], s, spec.transition) === 'dip';
-      if (prev && !['none', 'cut', 'dip'].includes(tl.transition)) {
-        // the transition blends real pixels: render the previous scene's final frame
-        const ptl = Object.assign(timeScene(spec, prev, await voiced[i - 1]), { index: i - 1, count: n });
-        tl.prevFrame = await stillFor(spec, ptl, ptl.dur - 1 / spec.fps, tmp, { contentOnly: true });
-      }
+      // the transition blends real pixels: the worker renders the previous scene's final frame
+      const prevTl = prev && !['none', 'cut', 'dip'].includes(tl.transition)
+        ? Object.assign(timeScene(spec, prev, await voiced[i - 1]), { index: i - 1, count: n })
+        : null;
       const ts = Date.now();
-      await renderSegment(spec, tl, segs[i]);
+      await renderer.render({ spec, tl, prevTl, file: segs[i], tmp });
       if (process.env.MAKEVIDEO_DEBUG) console.error(`scene ${i} ${s.type} ${tl.frames} frames ${Date.now() - ts} ms`);
       log({ stage: 'render', message: `scene ${i + 1}/${n} (${s.type})`, progress: ++done / n });
-    }), opts.concurrency ?? 2);
+    }), n);
     speaker?.close();
+    renderer.close();
     let offset = 0;
     for (const tl of timeline) { tl.offset = offset; offset += tl.dur; }
     const total = offset;
@@ -102,23 +101,21 @@ export async function video(input, opts = {}) {
     } else args.push('-map', '0:v', '-map', '1:a');
     args.push('-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-t', total.toFixed(3), '-movflags', '+faststart', spec.output);
     log({ stage: 'mux', message: 'muxing' });
-    await run(FFMPEG, args);
-
-    // 5) sidecars: captions, report, poster
+    // mux, poster and GIF are independent: run them side by side (GIF reads the silent segments)
     const base = spec.output.replace(/\.[^.]+$/, '');
-    const cues = timeline.flatMap((tl) => cuesFor(tl.spoken.filter((s) => s.text)).map((c) => ({ ...c, start: c.start + tl.offset, end: c.end + tl.offset })));
-    fs.writeFileSync(base + '.srt', toSrt(cues));
     const poster = base + '.jpg';
-    await writePoster(spec, timeline, poster);
     let gif = null;
+    const sidecars = [run(FFMPEG, args), writePoster(spec, timeline, poster)];
     if (spec.gif) {
       gif = base + '.gif';
       const g = typeof spec.gif === 'object' ? spec.gif : {};
       const gw = g.width ?? Math.min(640, spec.width), gfps = g.fps ?? 12;
-      log({ stage: 'gif', message: 'writing ' + path.basename(gif) });
-      await run(FFMPEG, ['-y', ...(g.start != null ? ['-ss', String(g.start)] : []), ...(g.duration ? ['-t', String(g.duration)] : []), '-i', spec.output,
-        '-vf', `fps=${gfps},scale=${gw}:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4`, gif]);
+      sidecars.push(run(FFMPEG, ['-y', '-f', 'concat', '-safe', '0', ...(g.start != null ? ['-ss', String(g.start)] : []), ...(g.duration ? ['-t', String(g.duration)] : []), '-i', list,
+        '-vf', `fps=${gfps},scale=${gw}:-2:flags=lanczos,split[a][b];[a]palettegen=max_colors=128:stats_mode=diff[p];[b][p]paletteuse=dither=bayer:bayer_scale=4`, gif]));
     }
+    const cues = timeline.flatMap((tl) => cuesFor(tl.spoken.filter((s) => s.text)).map((c) => ({ ...c, start: c.start + tl.offset, end: c.end + tl.offset })));
+    fs.writeFileSync(base + '.srt', toSrt(cues));
+    await Promise.all(sidecars);
     const scenes = timeline.map((tl, i) => ({ index: i, type: tl.scene.type, title: tl.scene.title ?? null, start: +tl.offset.toFixed(3), duration: +tl.dur.toFixed(3), say: tl.scene.say ?? null }));
     const result = {
       output: spec.output, srt: base + '.srt', report: base + '.report.json', poster, gif,
@@ -130,6 +127,7 @@ export async function video(input, opts = {}) {
     return result;
   } finally {
     speaker?.close();
+    renderer.close();
     if (!opts.keepTemp) try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {} // never mask the real error
   }
 }
@@ -184,6 +182,17 @@ export async function preview(input, opts = {}) {
 
 // ------------------------------------------------------------------ internals
 
+/**
+ * TTS processes x ONNX threads. Measured on 6C/12T: 1 process using every core = 1.7x real
+ * time; 3 processes each using every core fight (1.5x); 2-3 processes with cores/4 threads
+ * each = ~2x. More processes also cost ~330 MB RAM each, so cap at 3.
+ */
+function ttsShape(cores, opts) {
+  const workers = opts.ttsWorkers ?? Math.max(1, Math.min(3, Math.floor(cores / 4)));
+  const threads = opts.ttsThreads ?? Math.max(1, Math.floor(cores / 2 / workers));
+  return { workers, threads };
+}
+
 function timeScene(spec, s, parts) {
   let t = spec.padBefore;
   const spoken = parts.map((p, k) => {
@@ -214,165 +223,6 @@ function estimatedTimeline(spec) {
     offset += dur;
     return tl;
   });
-}
-
-async function sceneLayout(spec, tl) {
-  const s = tl.scene;
-  const assets = {};
-  if (s.type === 'image' || (s.type === 'split' && !isVideoScene(s))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
-  let reveals, revealLen = 0.65;
-  if (s.type === 'statement') {
-    // words pop in at a speaking rhythm across the first ~70% of the narration
-    const nW = String(s.text).split(/\s+/).filter(Boolean).length;
-    const speechEnd = tl.spoken.length ? tl.spoken[tl.spoken.length - 1].end : tl.dur;
-    const step = Math.min(0.3, Math.max(0.1, ((speechEnd - spec.padBefore) * 0.7) / nW));
-    reveals = Array.from({ length: nW }, (_, i) => spec.padBefore * 0.6 + i * step);
-    revealLen = 0.35;
-  } else {
-    const n = s.type === 'compare' ? 2 : s.type === 'chart' ? s.bars.length : s.items?.length || (s.type === 'split' && s.text ? 1 : 0);
-    reveals = revealTimes(n, tl.spoken, tl.dur, spec.padBefore);
-    if (s.type === 'chart') revealLen = 1.0;
-  }
-  return makeLayout(spec, s, {
-    dur: tl.dur, index: tl.index ?? 0, count: tl.count ?? 1, assets, reveals, revealLen,
-    transition: tl.transition ?? 'none', prevFrame: tl.prevFrame ?? null, nextDip: tl.nextDip ?? false,
-    cues: cuesFor(tl.spoken.filter((x) => x.text), spec.captionStyle === 'bold' ? 4 : 12),
-  });
-}
-
-async function stillFor(spec, tl, t, tmp, extra = {}) {
-  const L = { ...(await sceneLayout(spec, tl)), ...extra };
-  const canvas = createCanvas(spec.width, spec.height);
-  const ctx = canvas.getContext('2d');
-  if (isVideoScene(tl.scene)) {
-    const png = path.join(tmp, `v${tl.index ?? 0}-${Math.round(t * 1000)}.png`);
-    const len = await mediaDuration(tl.scene.srcPath);
-    const at = len ? ((tl.scene.start || 0) + t) % len : (tl.scene.start || 0) + t;
-    await run(FFMPEG, ['-y', '-ss', at.toFixed(3), '-i', tl.scene.srcPath, '-frames:v', '1',
-      '-vf', videoFilter(tl.scene, L, spec.width, spec.height), png]);
-    const bg = await loadImage(fs.readFileSync(png));
-    const over = createCanvas(spec.width, spec.height);
-    drawFrame(over.getContext('2d'), tl.scene, t, L);
-    ctx.drawImage(bg, 0, 0);
-    ctx.drawImage(over, 0, 0);
-  } else drawFrame(ctx, tl.scene, t, L);
-  return canvas;
-}
-
-async function writePoster(spec, timeline, file) {
-  const tl = timeline.find((x) => x.scene.type === 'title') || timeline[0];
-  const L = await sceneLayout(spec, tl);
-  const canvas = createCanvas(spec.width, spec.height);
-  const s = { ...tl.scene };
-  if (isVideoScene(s)) return; // posters for clip-first videos: skip (no decoded frame here)
-  drawFrame(canvas.getContext('2d'), s, Math.min(tl.dur - 0.3, 2.5), { ...L, captions: false, progress: false });
-  fs.writeFileSync(file, canvas.toBuffer('image/jpeg', 88));
-}
-
-/**
- * Which frames can differ from the previous one? Everything in makevideo animates for a short
- * window after an event (scene start, list reveal, caption change, closing fade) and is still
- * otherwise. Only "live" frames are drawn and piped; holds are repeated inside ffmpeg by the
- * `loop` filter *after* colour conversion, where a repeated frame costs almost nothing.
- * Returns [{ frame, repeat }] holds (repeat = extra copies of that unique frame).
- */
-export function planFrames(tl, L, fps) {
-  const N = tl.frames;
-  if (tl.scene.type === 'image' && tl.scene.zoom !== false) return { live: N, holds: [] }; // Ken Burns moves every frame
-  const live = new Uint8Array(N);
-  const mark = (t0, len) => {
-    for (let f = Math.max(0, Math.floor(t0 * fps)); f < Math.min(N, Math.ceil((t0 + len) * fps) + 1); f++) live[f] = 1;
-  };
-  mark(0, 1.75); // entrance animations, transitions, count-ups, opening fade
-  mark(L.dur - 0.75, 0.75); // closing fades
-  for (const r of L.reveals) mark(r, L.revealLen ?? 0.65);
-  for (const c of L.cues) {
-    mark(c.start, L.captionStyle === 'bold' ? 0.2 : 0); // bold captions pop in
-    mark(c.end, 0);
-    if (L.captionStyle === 'bold') for (const w of wordTimes(c)) mark(w, 0);
-  }
-  const holds = [];
-  let uniq = -1;
-  for (let f = 0; f < N; f++) {
-    if (live[f] || uniq < 0) uniq++;
-    else if (holds.length && holds[holds.length - 1].frame === uniq) holds[holds.length - 1].repeat++;
-    else holds.push({ frame: uniq, repeat: 1 });
-    live[f] = live[f] || f === 0 ? 1 : 0;
-  }
-  return { live: uniq + 1, holds, mask: live };
-}
-
-/** ffmpeg filter that expands held frames. Applied last-hold-first so indices stay valid. */
-function loopChain(holds) {
-  return holds.slice().reverse().map((h) => `loop=loop=${h.repeat}:size=1:start=${h.frame}`).join(',');
-}
-
-async function renderSegment(spec, tl, file) {
-  const { width: W, height: H, fps } = spec;
-  const s = tl.scene;
-  const L = await sceneLayout(spec, tl);
-  const plan = planFrames(tl, L, fps);
-  const loops = plan.holds.length ? ',' + loopChain(plan.holds) : '';
-  const canvas = createCanvas(W, H);
-  const ctx = canvas.getContext('2d');
-  const raw = ['-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', `${W}x${H}`, '-r', String(fps), '-i', '-'];
-  const enc = ['-c:v', 'libx264', ...QUALITY[spec.quality], '-threads', String(spec.encoderThreads), '-pix_fmt', 'yuv420p', '-r', String(fps), '-frames:v', String(tl.frames), '-an', file];
-  let args;
-  if (isVideoScene(s)) {
-    const fitV = videoFilter(s, L, W, H);
-    args = ['-y', '-stream_loop', '-1', '-ss', String(s.start || 0), '-i', s.srcPath, ...raw,
-      '-filter_complex', `[0:v]fps=${fps},${fitV},setsar=1[bg];[1:v]format=yuva420p${loops},setpts=N/${fps}/TB[ov];[bg][ov]overlay=format=auto:eof_action=repeat[v]`,
-      '-map', '[v]', ...enc];
-  } else {
-    args = ['-y', ...raw, '-vf', `format=yuv420p${loops},setpts=N/${fps}/TB`, ...enc];
-  }
-  if (loops.length > 30000) throw new Error('scene too long to plan; split it into smaller scenes');
-  const ff = spawn(FFMPEG, args, { stdio: ['pipe', 'ignore', 'pipe'] });
-  let err = '';
-  ff.stderr.on('data', (d) => (err = (err + d).slice(-4000)));
-  const closed = new Promise((res, rej) => ff.on('close', (c) => (c === 0 ? res() : rej(new Error(`ffmpeg failed for scene "${s.title || s.type}":
-${err}`)))));
-  ff.stdin.on('error', () => {}); // surfaced via `closed`
-  for (let f = 0; f < tl.frames; f++) {
-    if (plan.mask && !plan.mask[f]) continue;
-    drawFrame(ctx, s, f / fps, L);
-    const buf = ctx.getImageData(0, 0, W, H).data;
-    if (!ff.stdin.write(Buffer.from(buf.buffer, buf.byteOffset, buf.byteLength))) {
-      await new Promise((r) => ff.stdin.once('drain', r));
-    }
-  }
-  ff.stdin.end();
-  await closed;
-}
-
-/** Where the video goes: full frame for clips, the media box for split scenes. */
-function videoFilter(s, L, W, H) {
-  if (s.type !== 'split') return fitFilter(s, W, H);
-  const r = splitRect(s, L);
-  return `${fitFilter(s, r.w, r.h)},pad=${W}:${H}:${r.x}:${r.y}:color=black`;
-}
-
-const durations = new Map();
-/** Media length in seconds (parsed from ffmpeg's banner; ffmpeg-static ships no ffprobe). */
-async function mediaDuration(file) {
-  if (durations.has(file)) return durations.get(file);
-  const out = await new Promise((res) => {
-    const p = spawn(FFMPEG, ['-i', file], { stdio: ['ignore', 'ignore', 'pipe'] });
-    let err = '';
-    p.stderr.on('data', (d) => (err += d));
-    p.on('close', () => res(err));
-  });
-  const m = /Duration: (\d+):(\d+):([\d.]+)/.exec(out);
-  const d = m ? +m[1] * 3600 + +m[2] * 60 + +m[3] : 0;
-  durations.set(file, d);
-  return d;
-}
-
-/** ffmpeg scale filter for a clip: fill-and-crop (default) or letterbox (`fit: "contain"`). */
-function fitFilter(s, W, H) {
-  return s.fit === 'contain'
-    ? `scale=${W}:${H}:force_original_aspect_ratio=decrease,pad=${W}:${H}:(ow-iw)/2:(oh-ih)/2:color=black`
-    : `scale=${W}:${H}:force_original_aspect_ratio=increase,crop=${W}:${H}`;
 }
 
 /** Kokoro pads clips with near-silence; trim the tail so pacing feels tight. */
@@ -410,16 +260,6 @@ function toSrt(cues) {
     return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')},${String(ms % 1000).padStart(3, '0')}`;
   };
   return cues.map((c, i) => `${i + 1}\n${ts(c.start)} --> ${ts(c.end)}\n${c.text}\n`).join('\n');
-}
-
-function run(cmd, args) {
-  return new Promise((res, rej) => {
-    const p = spawn(cmd, args, { stdio: ['ignore', 'ignore', 'pipe'] });
-    let err = '';
-    p.stderr.on('data', (d) => (err = (err + d).slice(-4000)));
-    p.on('error', rej);
-    p.on('close', (c) => (c === 0 ? res() : rej(new Error(`${path.basename(cmd)} exited ${c}:\n${err}`))));
-  });
 }
 
 async function pool(jobs, n) {

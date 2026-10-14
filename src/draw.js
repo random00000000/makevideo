@@ -326,7 +326,7 @@ function range(a, b) { const r = []; for (let i = a; i <= b; i++) r.push(i); ret
 const KW = /^(const|let|var|function|return|if|else|for|while|import|export|from|async|await|new|class|extends|def|fn|pub|struct|impl|use|mut|match|true|false|null|undefined|None|True|False|self|this|type|interface|in|of|try|catch|throw)$/;
 function tokenize(line) {
   const out = [];
-  const re = /(\/\/.*$|#.*$|--.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)|(\s+)|(.)/g;
+  const re = /(\/\/.*$|#.*$|--\s.*$)|("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*'|`(?:[^`\\]|\\.)*`)|(\b\d+(?:\.\d+)?\b)|([A-Za-z_$][\w$]*)|(\s+)|(.)/g;
   let m;
   while ((m = re.exec(line))) {
     if (m[1]) out.push(['comment', m[1]]);

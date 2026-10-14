@@ -128,7 +128,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     padAfter: input.padAfter ?? 0.55,
     gap: input.sentenceGap ?? 0.18,
     quality: input.quality ?? 'standard',
-    encoderThreads: input.encoderThreads ?? Number(process.env.MAKEVIDEO_THREADS || 4),
+    encoderThreads: input.encoderThreads ?? Number(process.env.MAKEVIDEO_THREADS || 2), // measured: 2 beats 4 when several scenes encode at once
     scenes,
   };
 }

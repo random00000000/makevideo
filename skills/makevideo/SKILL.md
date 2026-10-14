@@ -13,14 +13,14 @@ description: Make MP4 videos (explainers, devlogs, patch notes, game trailers, d
 npm i github:random00000000/makevideo
 ```
 
-The first render downloads the voice model (about 300 MB) to the Hugging Face cache. After that everything is offline.
+Run `npx makevideo setup` once to pre-download the voice models (about 330 MB Kokoro plus 63 MB for the fast voice). After that everything is offline.
 
 ## Workflow
 
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.
 2. `npx makevideo check video.json --json`: fix any `problems` it reports.
 3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
-4. `npx makevideo video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
+4. `npx makevideo video.json --json` (add `--fast` when speed matters more than voice polish, e.g. drafts or long videos): this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
 5. Give the user the mp4 path. When the video informs a decision, end with a `decisions` scene.
 
 ## Defaults to keep (these are the standard; don't change them per video)

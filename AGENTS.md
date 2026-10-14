@@ -7,7 +7,9 @@ If you are an AI agent asked to produce a **video** (explainer, devlog, patch no
 - `src/index.js`: pipeline (`video`, `check`, `preview`), frame planning (`planFrames`), and the ffmpeg encode/mux.
 - `src/draw.js`: every scene type is one pure drawer `(ctx, scene, t, L)`. To add a scene type, add a drawer and an entry in `SCENE_TYPES` (`src/spec.js`) with `needs` and an `example`, then document it in the README table and `schema.json`.
 - `src/spec.js`: normalization and validation. Error messages must say *where* the problem is and include a working example.
-- `src/tts.js` + `src/tts-worker.js`: the Kokoro TTS process pool and its cache. Use processes, not worker_threads: onnxruntime-node crashes inside worker threads.
+- `src/tts.js` + `src/tts-worker.js`: the Kokoro TTS process pool and its cache. Use processes, not worker_threads: onnxruntime-node crashes inside worker threads. Pin ONNX `intraOpNumThreads` and keep `allow_spinning: '0'`; see `ttsShape()` in index.js for the measured shape.
+- `src/piper.js`: the "fast" voices (Piper VITS via onnxruntime-node, espeak phonemes from `phonemizer`, resampled to 24 kHz). Ship only permissively licensed voices: lessac is research-only, and ryan/hfc are non-commercial.
+- `src/render.js` + `src/render-worker.js` + `src/render-pool.js`: scene layout, frame planning, drawing and ffmpeg encoding, run in a pool of processes.
 - `src/record.js`: screen capture.
 - `src/markdown.js`: Markdown to spec (`fromMarkdown`).
 - `src/fonts.js` + `fonts/`: bundled OFL fonts (static weights cut from the variable fonts with fontTools; variable-font weights don't select reliably in @napi-rs/canvas).
