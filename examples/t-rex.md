@@ -12,7 +12,7 @@ The tyrant lizard king
 > Sixty six million years ago, the largest predator in its world stood around four meters tall at the hips, and weighed more than an elephant. This is Tyrannosaurus rex.
 
 ## Chapter: Discovery
-![Barnum Brown with dinosaur fossil 1900s photograph]()
+![Tyrannosaurus rex holotype]()
 > Chapter one. Discovery.
 
 ## Hell Creek, Montana

@@ -19,7 +19,7 @@
 
 ```bash
 npm i github:random00000000/makevideo
-npx makevideo init            # writes video.json
+npx makevideo init            # writes video.json  (or: init --style documentary | shorts | explainer)
 npx makevideo video.json      # → video.mp4 + video.srt + video.report.json + video.jpg
 npx makevideo video.json --fast   # same, about 3x faster on a first render
 ```
@@ -92,6 +92,7 @@ The tyrant lizard king
 
 What you get, with no other settings:
 
+- **Image check:** `preview` lists which file each search picked, and flags with "?" any pick whose title doesn't match the query (for example a different species). Agents can refine the search before rendering.
 - **Real images, licensed for publishing.** `![description]()` (or `"search": "..."` in JSON) searches **Wikimedia Commons**. It keeps only publish-safe licenses (CC0, public domain, CC BY, CC BY-SA), never reuses an image within a video, caches downloads, and shortens over-specific searches until something matches. Each image gets a small credit line, and the full attributions go into the description.
 - **Cinematic motion:** slow Ken Burns on every still, varied by scene (in, out, left, right, up, down; set `pan` / `focus` to override), plus chapter cards (`## Chapter: ...`) and timelines.
 - **A score:** an original royalty-free music bed is synthesized for the video (`music: documentary | epic | wonder | tension`) and ducked under the narration.
@@ -369,9 +370,10 @@ If the `makevideo` MCP server is connected, call `video_reference` once, then `p
 
 ## Workflow
 
+0. Fastest start: `npx makevideo init --style documentary|shorts|explainer` writes a ready-to-edit `video.md`.
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.
 2. `npx makevideo check video.json --json`: fix any `problems` it reports.
-3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
+3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides. If it lists an image with "?", the search picked something else; refine the search words.
 4. `npx makevideo video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
 5. Give the user the mp4 path. When the video informs a decision, end with a `decisions` scene.
 

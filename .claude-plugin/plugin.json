@@ -1,7 +1,7 @@
 {
   "name": "makevideo",
   "description": "Fast, standard video generation for AI agents. Say \"make a video\" and Claude builds a narrated, captioned MP4 with makevideo: local voice, CPU-only, no API key.",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "author": {
     "name": "random00000000",
     "url": "https://github.com/random00000000"

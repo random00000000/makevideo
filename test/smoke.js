@@ -73,3 +73,12 @@ assert.equal(r.scenes.length, scenes.length);
 assert.ok(Math.abs(r.duration - scenes.length * 1.5) < 0.2, 'durations add up: ' + r.duration);
 console.log(`ok: ${scenes.length} scenes (${Object.keys(SCENE_TYPES).length} types), ${r.duration}s silent video in ${((Date.now() - t0) / 1000).toFixed(1)}s`);
 fs.rmSync(dir, { recursive: true, force: true });
+
+// every `init --style` starter is a valid, lint-clean video
+const { STARTERS } = await import('../src/starters.js');
+for (const [name, md] of Object.entries(STARTERS)) {
+  const r = check(fromMarkdown(md));
+  assert.ok(r.ok, `${name} starter: ${JSON.stringify(r.problems)}`);
+  assert.deepEqual(r.warnings, [], `${name} starter has lint warnings: ${r.warnings}`);
+}
+console.log(`ok: ${Object.keys(STARTERS).length} starters valid and lint-clean`);

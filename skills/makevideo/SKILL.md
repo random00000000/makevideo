@@ -21,9 +21,10 @@ If the `makevideo` MCP server is connected, call `video_reference` once, then `p
 
 ## Workflow
 
+0. Fastest start: `npx makevideo init --style documentary|shorts|explainer` writes a ready-to-edit `video.md`.
 1. **Write `video.json`.** Every scene needs a `type` and a `say` (narration). Keep it to 1–3 sentences per scene.
 2. `npx makevideo check video.json --json`: fix any `problems` it reports.
-3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides.
+3. `npx makevideo preview video.json`: look at the PNG contact sheet and fix overflow or empty slides. If it lists an image with "?", the search picked something else; refine the search words.
 4. `npx makevideo video.json --json`: this renders and returns `{ output, srt, poster, gif, duration, seconds }`.
 5. Give the user the mp4 path. When the video informs a decision, end with a `decisions` scene.
 

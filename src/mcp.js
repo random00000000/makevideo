@@ -75,7 +75,7 @@ async function callTool(name, args = {}, progress) {
     return {
       content: [
         { type: 'image', data: c.toBuffer('image/jpeg', 80).toString('base64'), mimeType: 'image/jpeg' },
-        { type: 'text', text: JSON.stringify({ ...r, warnings: check(spec, { baseDir }).warnings }, null, 2) },
+        { type: 'text', text: JSON.stringify({ ...r, warnings: [...r.warnings, ...check(spec, { baseDir }).warnings] }, null, 2) },
       ],
     };
   }

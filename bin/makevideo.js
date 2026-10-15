@@ -3,6 +3,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { STARTERS } from '../src/starters.js';
 import { video, check, preview, record, setup, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
 
 const HELP = `makevideo — fast, standard video generation for AI agents.
@@ -10,7 +11,7 @@ const HELP = `makevideo — fast, standard video generation for AI agents.
   makevideo <spec.json|spec.js|notes.md>   render the video (mp4 + srt + report.json + jpg)
   makevideo check <spec>             validate only, print estimated length (instant)
   makevideo preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
-  makevideo init [file]              write a starter spec (default: video.json)
+  makevideo init [file] [--style documentary|shorts|explainer]   write a starter (JSON, or Markdown per style)
   makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
   makevideo agents [--claude --cursor --copilot --all --global]
@@ -50,7 +51,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a === '-o' || a === '--output') flags.output = argv[++i];
   else if (a.startsWith('--')) {
     const k = a.slice(2);
-    if (['format', 'voice', 'theme', 'quality', 'seconds', 'window', 'fps'].includes(k)) flags[k] = argv[++i];
+    if (['format', 'voice', 'theme', 'quality', 'seconds', 'window', 'fps', 'style'].includes(k)) flags[k] = argv[++i];
     else flags[k] = true;
   } else pos.push(a);
 }
@@ -108,9 +109,11 @@ try {
     const r = await record({ output: rest[0], seconds: Number(flags.seconds), fps: Number(flags.fps || 30), window: flags.window });
     out({ ok: true, ...r }, `recorded ${r.output}`);
   } else if (cmd === 'init') {
-    const f = rest[0] || 'video.json';
+    const style = flags.style;
+    const f = rest[0] || (style ? 'video.md' : 'video.json');
     if (fs.existsSync(f)) fail(`${f} already exists`);
-    fs.writeFileSync(f, JSON.stringify(STARTER, null, 2) + '\n');
+    if (style && !STARTERS[style]) fail(`unknown --style "${style}". Use: ${Object.keys(STARTERS).join(', ')}`);
+    fs.writeFileSync(f, style ? STARTERS[style] : JSON.stringify(STARTER, null, 2) + '\n');
     out({ ok: true, file: f }, `wrote ${f} — edit it, then: makevideo ${f}`);
   } else if (cmd === 'check') {
     const { spec, baseDir } = await load(rest[0]);
@@ -121,7 +124,9 @@ try {
   } else if (cmd === 'preview') {
     const { spec, baseDir } = await load(rest[0]);
     const r = await preview(spec, { baseDir });
-    out({ ok: true, ...r }, `preview: ${r.output} (${r.scenes} scenes, about ${r.estimatedSeconds}s)`);
+    const imgs = r.media.map((m) => `  ${m.match ? '✓' : '?'} "${m.search}" → ${m.image} [${m.license}]`).join('\n');
+    const warn = r.warnings.map((w) => '  - ' + w).join('\n');
+    out({ ok: true, ...r }, `preview: ${r.output} (${r.scenes} scenes, about ${r.estimatedSeconds}s)` + (imgs ? `\nimages:\n${imgs}` : '') + (warn ? `\ncheck these:\n${warn}` : ''));
   } else {
     const file = cmd === 'render' ? rest[0] : cmd;
     const { spec, baseDir } = await load(file);

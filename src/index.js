@@ -192,7 +192,9 @@ export async function preview(input, opts = {}) {
     const out = opts.output || spec.output.replace(/\.[^.]+$/, '') + '.preview.png';
     fs.mkdirSync(path.dirname(out), { recursive: true });
     fs.writeFileSync(out, sheet.toBuffer('image/png'));
-    return { output: out, estimatedSeconds: +total.toFixed(1), scenes: timeline.length };
+    const media = (input._credits || []).map((c) => ({ search: c.search, image: c.title, license: c.license, match: c.match }));
+    const warnings = media.filter((m) => !m.match).map((m) => `image for "${m.search}" is "${m.image}", which may not show it. Refine the search or set "src".`);
+    return { output: out, estimatedSeconds: +total.toFixed(1), scenes: timeline.length, media, warnings };
   } finally {
     try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
   }

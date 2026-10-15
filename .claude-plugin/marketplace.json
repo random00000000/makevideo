@@ -7,7 +7,7 @@
       "name": "makevideo",
       "source": "./",
       "description": "Say \"make a video\" and Claude renders a narrated, captioned MP4 with makevideo. Local voice, CPU-only, no API key.",
-      "version": "0.5.1",
+      "version": "0.5.2",
       "category": "productivity"
     }
   ]

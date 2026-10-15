@@ -87,7 +87,11 @@ export async function resolveMedia(input, { log = () => {}, portrait = false } =
     await download(pick.url, file);
     s.src = file;
     s.credit = s.credit ?? `${pick.author} · ${pick.license}`;
-    credits.push({ search: s.search, title: pick.title, author: pick.author, license: pick.license, url: pick.page });
+    // does the picked file look like what was asked for? (shared words between query and title)
+    const words = (x) => new Set(String(x).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3));
+    const q = words(s.search), t = words(pick.title);
+    const match = [...q].some((w) => [...t].some((v) => v.startsWith(w.slice(0, 5)) || w.startsWith(v.slice(0, 5))));
+    credits.push({ search: s.search, title: pick.title, author: pick.author, license: pick.license, url: pick.page, match });
   }
   fs.mkdirSync(dir, { recursive: true });
   fs.writeFileSync(cache, JSON.stringify(memo));
