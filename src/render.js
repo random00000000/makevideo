@@ -19,7 +19,7 @@ const QUALITY = {
 export async function sceneLayout(spec, tl) {
   const s = tl.scene;
   const assets = {};
-  if (s.type === 'image' || (s.type === 'split' && !isVideoScene(s))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
+  if (s.srcPath && (s.type === 'image' || s.type === 'chapter' || (s.type === 'split' && !isVideoScene(s)))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
   let reveals, revealLen = 0.65;
   if (s.type === 'statement') {
     // words pop in at a speaking rhythm across the first ~70% of the narration
@@ -29,7 +29,7 @@ export async function sceneLayout(spec, tl) {
     reveals = Array.from({ length: nW }, (_, i) => spec.padBefore * 0.6 + i * step);
     revealLen = 0.35;
   } else {
-    const n = s.type === 'compare' ? 2 : s.type === 'chart' ? s.bars.length : s.items?.length || (s.type === 'split' && s.text ? 1 : 0);
+    const n = s.type === 'compare' ? 2 : s.type === 'timeline' ? s.events.length : s.type === 'chart' ? s.bars.length : s.items?.length || (s.type === 'split' && s.text ? 1 : 0);
     reveals = revealTimes(n, tl.spoken, tl.dur, spec.padBefore);
     if (s.type === 'chart') revealLen = 1.0;
   }
@@ -78,13 +78,13 @@ export async function writePoster(spec, timeline, file) {
  */
 /** Seconds until each scene type's entrance animation (excluding reveals) is finished. */
 const ENTRANCE = {
-  title: 1.3, outro: 1.3, stat: 1.65, quote: 1.2, code: 0.75, compare: 0.65, chart: 0.75,
+  title: 1.3, outro: 1.3, chapter: 1.7, timeline: 0.95, stat: 1.65, quote: 1.2, code: 0.75, compare: 0.65, chart: 0.75,
   bullets: 0.65, steps: 0.65, decisions: 0.65, statement: 0.6, split: 0.85, clip: 0.85, image: 0.85,
 };
 
 export function planFrames(tl, L, fps) {
   const N = tl.frames;
-  if (tl.scene.type === 'image' && tl.scene.zoom !== false) return { live: N, holds: [] }; // Ken Burns moves every frame
+  if ((tl.scene.type === 'image' || (tl.scene.type === 'chapter' && tl.scene.srcPath)) && tl.scene.zoom !== false) return { live: N, holds: [] }; // Ken Burns moves every frame
   const live = new Uint8Array(N);
   const mark = (t0, len) => {
     for (let f = Math.max(0, Math.floor(t0 * fps)); f < Math.min(N, Math.ceil((t0 + len) * fps) + 1); f++) live[f] = 1;

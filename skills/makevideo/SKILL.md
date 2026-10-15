@@ -37,6 +37,10 @@ If the `makevideo` MCP server is connected, call `video_reference` once, then `p
 
 Write `video.md`. Each `##` heading is a scene, list items are bullets, `- Label: 42` items become a chart, `![](clip.mp4)` adds media, a lone paragraph becomes a big statement, and `> lines` are the narration. Then run `npx makevideo video.md`.
 
+## YouTube documentaries (history, science, dinosaurs)
+
+Set `style: documentary` (history), `history` (battles, empires) or `nature` (science, dinosaurs) in the front matter. Use `![what the image should show]()` to pull a licensed image from Wikimedia Commons. Use `## Chapter: Name` for chapter cards, and `## Timeline` with `- When: what` items. You get a music bed, −14 LUFS loudness, a thumbnail and a description with chapters and credits. Write original narration; a transcript of someone else's video is research, not a script. See examples/t-rex.md.
+
 ## Scene types
 
 `title`, `statement` (text; `*stars*` = accent words), `bullets`, `steps`, `decisions`, `chart` (bars [{label, value}], unit), `split` (src + items: media beside text), `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`. Transitions are automatic.

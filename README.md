@@ -64,6 +64,44 @@ The goal is that an agent's *first* attempt looks finished. Without any extra co
 - **Speech cleanup:** write naturally. `42%`, `v1.2`, `$3M`, `4.6x`, `35 s`, `e.g.` and `->` are all spoken correctly, and captions keep what you wrote.
 - **Lint:** `check` flags walls of text, too many bullets, unsynced lists, overlong statements, dense scenes in portrait and repetitive pacing, and says how to fix each one.
 
+## YouTube documentaries (history, science, dinosaurs)
+
+One switch, `style`, sets the whole look and sound: `documentary` (history channels), `history` (adds a war-drum score), or `nature` (science and dinosaurs). Then write the script and say which images you want:
+
+```md
+---
+title: Tyrannosaurus rex, the tyrant lizard king
+style: nature
+thumbnailText: The real T. rex
+---
+
+## Tyrannosaurus rex
+![Tyrannosaurus rex skeleton museum]()
+The tyrant lizard king
+> Sixty six million years ago, the largest predator in its world...
+
+## Chapter: Built to kill
+![Tyrannosaurus rex skull]()
+> Chapter two. Built to kill.
+
+## Timeline
+- 68 Mya: T. rex appears
+- 66 Mya: Asteroid impact
+> Its story fits on one line. It appears sixty eight million years ago. It vanishes when the asteroid hits.
+```
+
+What you get, with no other settings:
+
+- **Real images, licensed for publishing.** `![description]()` (or `"search": "..."` in JSON) searches **Wikimedia Commons**. It keeps only publish-safe licenses (CC0, public domain, CC BY, CC BY-SA), never reuses an image within a video, caches downloads, and shortens over-specific searches until something matches. Each image gets a small credit line, and the full attributions go into the description.
+- **Cinematic motion:** slow Ken Burns on every still, varied by scene (in, out, left, right, up, down; set `pan` / `focus` to override), plus chapter cards (`## Chapter: ...`) and timelines.
+- **A score:** an original royalty-free music bed is synthesized for the video (`music: documentary | epic | wonder | tension`) and ducked under the narration.
+- **Broadcast loudness:** the final mix is normalized to **−14 LUFS**, YouTube's playback target.
+- **A publish package:** `video.thumbnail.jpg` (1280×720), and `video.description.txt` with YouTube chapter timestamps (0:00 first, each at least 10 s apart) and image credits.
+
+▶ [The T. rex example](docs/t-rex.mp4) ([script](examples/t-rex.md)): 2 min 37 s, rendered from one Markdown file.
+
+**From a transcript:** treat another creator's transcript as research, not as a script. Have the agent write its own narration. Republishing someone else's script is copyright infringement, and YouTube demonetizes it as "reused content".
+
 ## Write Markdown, get a video
 
 ```md
@@ -151,13 +189,14 @@ There is also [`AGENTS.md`](AGENTS.md), [`llms.txt`](llms.txt), a JSON Schema at
   "title": "My video",              // used for default output name
   "output": "out/my-video.mp4",     // default: <title-slug>.mp4 (relative to spec file)
   "format": "landscape",            // landscape 1920x1080 | portrait/shorts 1080x1920 | square | 720p
-  "theme": "midnight",              // midnight | forge | paper | terminal | { ...color overrides }
+  "style": "nature",                // documentary | history | nature: whole look + score + YouTube package
+  "theme": "midnight",              // midnight | forge | paper | terminal | documentary | nature | { ...overrides }
   "voice": "af_heart",              // the default house voice (warm female); "fast" = ~10x real-time Piper voice (male); false = silent
   "speed": 1,                       // speech rate
   "brand": "My Project",            // small label top-right
   "captions": true,                 // burned-in captions (an .srt is always written)
   "progressBar": true,              // chapter bar along the bottom
-  "music": "bed.mp3",               // optional background music, looped, faded out
+  "music": "documentary",           // generated score: documentary | epic | wonder | tension, or a file; ducked under the voice
   "musicVolume": 0.12,
   "pronounce": { "Hacksilver": "Hack silver" },  // TTS-only substitutions (merged over built-ins for JSON, MP4, GPU, ...); captions keep originals
   "quality": "standard",            // draft | standard | high
@@ -185,6 +224,8 @@ Every scene accepts `say` (narration) and an optional `duration` (minimum second
 | `compare` | `title?`, `left: {title, items}`, `right: {title, items}` | stacks vertically in portrait |
 | `statement` | `text`, `kicker?`, `align?` | huge kinetic type; words pop in with the voice; `*stars*` mark accent words |
 | `chart` | `bars: [{label, value}]` (or `{label: value}`), `title?`, `unit?`, `prefix?`, `highlight?`, `note?` | bars grow as the voice reaches them; values count up |
+| `chapter` | `title`, `number?`, `subtitle?`, `src` or `search` | full-bleed image chapter card with a serif title (`## Chapter: ...` in Markdown) |
+| `timeline` | `events: [{when, label}]`, `title?` | events light up as the voice reaches them (`## Timeline` + `- When: what`) |
 | `split` | `src` (image or video), `title?`, `items?` or `text?`, `side?` (`left`/`right`) | media beside synced points; video plays inside the frame |
 
 Scene `type` is inferred when omitted (`src` + `items`/`text` → split, `src` → image/clip, `bars` → chart, `items` → bullets, `code` → code, `value` → stat, `text` → statement).

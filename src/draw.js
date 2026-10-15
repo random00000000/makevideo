@@ -15,10 +15,13 @@ export function setFont(ctx, L, size, weight = 600, mono = false) {
   ctx.font = `${weight} ${Math.round(size)}px ${mono === 'display' ? L.theme.display || L.theme.font : mono ? L.theme.mono : L.theme.font}`;
 }
 
+/** Font face for titles: the theme's display face when it asks for serif titles. */
+export const titleFace = (L) => (L.theme.titleFace === 'display' ? 'display' : false);
+
 export function wrap(ctx, text, maxW) {
   const out = [];
   for (const para of String(text ?? '').split('\n')) {
-    const words = para.split(/\s+/).filter(Boolean);
+    const words = para.split(/[^\S ]+/).filter(Boolean); // non-breaking spaces stay inside a "word"
     let line = '';
     for (const w of words) {
       const test = line ? line + ' ' + w : w;
@@ -83,12 +86,49 @@ function paintBackground(ctx, L) {
   ctx.fillRect(0, 0, W, H);
 }
 
-function drawImageCover(ctx, img, x, y, w, h, zoom = 1, fit = 'cover') {
+const PANS = ['in', 'right', 'out', 'left', 'up', 'in', 'down'];
+/**
+ * Slow, eased Ken Burns move across the whole scene: in / out / left / right / up / down.
+ * Defaults vary by scene index so consecutive stills never move the same way.
+ */
+export function drawKenBurns(ctx, img, s, t, L) {
+  const p = s.zoom === false ? 0 : easeInOut(t / L.dur) * 0.75 + (t / L.dur) * 0.25;
+  const pan = s.pan || PANS[L.index % PANS.length];
+  const amt = s.zoom === false ? 0 : 0.09;
+  let z = 1.06, ox = 0, oy = 0;
+  if (pan === 'in') z = 1.02 + amt * p;
+  else if (pan === 'out') z = 1.02 + amt * (1 - p);
+  else if (pan === 'left' || pan === 'right') { z = 1.1; ox = (pan === 'left' ? 1 : -1) * (p - 0.5) * 0.07; }
+  else if (pan === 'up' || pan === 'down') { z = 1.1; oy = (pan === 'up' ? 1 : -1) * (p - 0.5) * 0.06; }
+  if (s.fit === 'contain') {
+    ctx.save(); ctx.filter = 'blur(40px)'; drawImageCover(ctx, img, 0, 0, L.W, L.H, 1.2); ctx.restore();
+    ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, L.W, L.H);
+  }
+  drawImageCover(ctx, img, 0, 0, L.W, L.H, z, s.fit, ox, oy, s.focus);
+  // readability: darken top (lower thirds) and bottom (captions) a little
+  const g = ctx.createLinearGradient(0, 0, 0, L.H);
+  g.addColorStop(0, 'rgba(0,0,0,0.38)'); g.addColorStop(0.28, 'rgba(0,0,0,0)');
+  g.addColorStop(0.62, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,0.55)');
+  ctx.fillStyle = g; ctx.fillRect(0, 0, L.W, L.H);
+}
+
+/** Attribution line for stock images (required by CC BY / BY-SA). */
+function drawCredit(ctx, s, L) {
+  if (!s.credit) return;
+  setFont(ctx, L, 17 * L.u, 500);
+  ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+  ctx.fillStyle = 'rgba(255,255,255,0.62)';
+  ctx.fillText(fitText(ctx, s.credit, L.W * 0.45), L.W - 28 * L.u, L.H - 18 * L.u);
+}
+
+function drawImageCover(ctx, img, x, y, w, h, zoom = 1, fit = 'cover', ox = 0, oy = 0, focus = null) {
   const s = (fit === 'contain' ? Math.min : Math.max)(w / img.width, h / img.height) * zoom;
   const iw = img.width * s, ih = img.height * s;
+  const fx = focus ? focus[0] : 0.5, fy = focus ? focus[1] : 0.5; // which part of the image stays centred
+  const dx = Math.min(0, Math.max(w - iw, w / 2 - iw * fx)) + ox * w, dy = Math.min(0, Math.max(h - ih, h / 2 - ih * fy)) + oy * h;
   ctx.save();
   ctx.beginPath(); ctx.rect(x, y, w, h); ctx.clip();
-  ctx.drawImage(img, x + (w - iw) / 2, y + (h - ih) / 2, iw, ih);
+  ctx.drawImage(img, x + (iw <= w ? (w - iw) / 2 : dx), y + (ih <= h ? (h - ih) / 2 : dy), iw, ih);
   ctx.restore();
 }
 
@@ -108,7 +148,7 @@ function kicker(ctx, L, text, x, y, a) {
 function heading(ctx, L, text, t, y = L.m, maxLines = 2, x = L.m, maxW = L.W - 2 * L.m) {
   if (!text) return y;
   const a = enter(t, 0.05);
-  const f = fit(ctx, L, text, { maxW, maxLines, size: 84 * L.u, weight: 800 });
+  const f = fit(ctx, L, text, { maxW, maxLines, size: 84 * L.u, weight: 800, mono: titleFace(L) });
   ctx.globalAlpha = a;
   ctx.fillStyle = L.theme.text;
   lines(ctx, f.lines, x, y + (1 - a) * 24 * L.u, f.lh);
@@ -123,7 +163,7 @@ function lowerThird(ctx, L, title, subtitle, t) {
   if (!title && !subtitle) return;
   const a = enter(t, 0.25);
   const x = L.m, maxW = Math.min(L.W - 2 * L.m, 1200 * L.u);
-  const tf = title ? fit(ctx, L, title, { maxW: maxW - 60 * L.u, maxLines: 2, size: 54 * L.u, weight: 800 }) : null;
+  const tf = title ? fit(ctx, L, title, { maxW: maxW - 60 * L.u, maxLines: 2, size: 54 * L.u, weight: 800, mono: titleFace(L) }) : null;
   setFont(ctx, L, 32 * L.u, 500);
   const sl = subtitle ? wrap(ctx, subtitle, maxW - 60 * L.u).slice(0, 2) : [];
   const h = 50 * L.u + (tf ? tf.lines.length * tf.lh : 0) + sl.length * 40 * L.u;
@@ -134,7 +174,7 @@ function lowerThird(ctx, L, title, subtitle, t) {
   ctx.fillStyle = L.theme.accent;
   ctx.fillRect(x - 30 * L.u * (1 - a), y, 10 * L.u, h);
   let yy = y + 25 * L.u;
-  if (tf) { setFont(ctx, L, tf.size, 800); ctx.fillStyle = L.theme.text; lines(ctx, tf.lines, x + 36 * L.u, yy, tf.lh); yy += tf.lines.length * tf.lh; }
+  if (tf) { setFont(ctx, L, tf.size, 800, titleFace(L)); ctx.fillStyle = L.theme.text; lines(ctx, tf.lines, x + 36 * L.u, yy, tf.lh); yy += tf.lines.length * tf.lh; }
   if (sl.length) { setFont(ctx, L, 32 * L.u, 500); ctx.fillStyle = L.theme.muted; lines(ctx, sl, x + 36 * L.u, yy, 40 * L.u); }
   ctx.globalAlpha = 1;
 }
@@ -145,13 +185,13 @@ const drawers = {
   title(ctx, s, t, L) {
     const a = enter(t, 0.1, 0.8);
     const maxW = L.W - 2 * L.m;
-    const f = fit(ctx, L, s.title, { maxW, maxLines: 3, size: (L.portrait ? 110 : 128) * L.u, weight: 800 });
+    const f = fit(ctx, L, s.title, { maxW, maxLines: 3, size: (L.portrait ? 110 : 128) * L.u, weight: 800, mono: titleFace(L) });
     setFont(ctx, L, 46 * L.u, 500);
     const sub = s.subtitle ? wrap(ctx, s.subtitle, maxW).slice(0, 3) : [];
     const total = (s.kicker ? 56 * L.u : 0) + f.lines.length * f.lh + 50 * L.u + sub.length * 60 * L.u;
     let y = (L.H - L.captionH - total) / 2;
     y += kicker(ctx, L, s.kicker, L.m, y, enter(t, 0));
-    ctx.globalAlpha = a; ctx.fillStyle = L.theme.text; setFont(ctx, L, f.size, 800);
+    ctx.globalAlpha = a; ctx.fillStyle = L.theme.text; setFont(ctx, L, f.size, 800, titleFace(L));
     lines(ctx, f.lines, L.m, y + (1 - a) * 40 * L.u, f.lh);
     y += f.lines.length * f.lh + 14 * L.u;
     ctx.fillStyle = L.theme.accent; ctx.fillRect(L.m, y, 160 * L.u * enter(t, 0.35, 0.9), 10 * L.u);
@@ -202,14 +242,9 @@ const drawers = {
   steps(ctx, s, t, L) { drawers.bullets(ctx, s, t, L, true); },
 
   image(ctx, s, t, L) {
-    const img = L.assets.image;
-    const z = s.zoom === false ? 1 : 1 + 0.07 * (t / L.dur);
-    if (s.fit === 'contain') {
-      ctx.save(); ctx.filter = 'blur(40px)'; drawImageCover(ctx, img, 0, 0, L.W, L.H, 1.2); ctx.restore();
-      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, L.W, L.H);
-    }
-    drawImageCover(ctx, img, 0, 0, L.W, L.H, z, s.fit);
+    drawKenBurns(ctx, L.assets.image, s, t, L);
     drawers.clip(ctx, s, t, L);
+    drawCredit(ctx, s, L);
   },
 
   clip(ctx, s, t, L) {
@@ -440,7 +475,7 @@ function shadow(ctx, L, fn) {
 /** Background + scene content, without captions/brand/progress ("chrome"). */
 export function drawContent(ctx, scene, t, L) {
   ctx.clearRect(0, 0, L.W, L.H);
-  if (scene.type !== 'clip' && scene.type !== 'image') drawBackground(ctx, L);
+  if (scene.type !== 'clip' && scene.type !== 'image' && !(scene.type === 'chapter' && L.assets.image)) drawBackground(ctx, L);
   (drawers[scene.type] || drawers.title)(ctx, scene, t, L);
 }
 
@@ -448,7 +483,7 @@ function drawChrome(ctx, scene, t, L) {
   const { W, H } = L;
   if (L.brand) {
     setFont(ctx, L, 26 * L.u, 700);
-    ctx.fillStyle = scene.type === 'clip' || scene.type === 'image' ? 'rgba(255,255,255,0.75)' : L.theme.muted;
+    ctx.fillStyle = scene.type === 'clip' || scene.type === 'image' || scene.type === 'chapter' ? 'rgba(255,255,255,0.75)' : L.theme.muted;
     ctx.textAlign = 'right'; ctx.textBaseline = 'top';
     ctx.fillText(L.brand.toUpperCase(), W - 40 * L.u, 34 * L.u);
   }
@@ -660,7 +695,7 @@ drawers.chart = function chart(ctx, s, t, L) {
   });
   if (s.note) {
     ctx.globalAlpha = enter(t, (L.reveals[bars.length - 1] ?? 0) + 0.6);
-    setFont(ctx, L, 30 * L.u, 500); ctx.fillStyle = L.theme.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+    setFont(ctx, L, 36 * L.u, 500); ctx.fillStyle = L.theme.muted; ctx.textAlign = 'left'; ctx.textBaseline = 'top';
     ctx.fillText(s.note, L.m, Math.min(y0 + bars.length * rowH + 10 * L.u, L.H - L.captionH));
     ctx.globalAlpha = 1;
   }
@@ -695,8 +730,9 @@ drawers.split = function split(ctx, s, t, L) {
     ctx.save(); ctx.globalAlpha = a;
     shadow(ctx, L, () => { ctx.fillStyle = '#000'; roundRect(ctx, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, rad); ctx.fill(); });
     roundRect(ctx, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, rad); ctx.clip();
-    drawImageCover(ctx, L.assets.image, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, 1, s.fit);
+    drawImageCover(ctx, L.assets.image, r.x, r.y + (1 - a) * 30 * L.u, r.w, r.h, 1, s.fit, 0, 0, s.focus);
     ctx.restore();
+    if (s.credit) { setFont(ctx, L, 16 * L.u, 500); ctx.textAlign = 'right'; ctx.textBaseline = 'top'; ctx.fillStyle = 'rgba(255,255,255,0.55)'; ctx.fillText(fitText(ctx, s.credit, r.w - 20 * L.u), r.x + r.w - 10 * L.u, r.y + r.h + 8 * L.u); }
   }
   ctx.strokeStyle = 'rgba(255,255,255,0.12)'; ctx.lineWidth = 2 * L.u;
   roundRect(ctx, r.x, r.y, r.w, r.h, rad); ctx.stroke();
@@ -723,6 +759,80 @@ drawers.split = function split(ctx, s, t, L) {
     setFont(ctx, L, size, s.items ? 600 : 500); ctx.fillStyle = s.items ? L.theme.text : L.theme.muted;
     lines(ctx, b, tx + (s.items ? 50 * L.u : 0) + (1 - ba) * 30 * L.u, y, size * 1.25);
     y += b.length * size * 1.25 + size * 0.6;
+  });
+  ctx.globalAlpha = 1;
+};
+
+// ---------------------------------------------------------------- documentary scene types
+
+const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 'XI', 'XII'];
+
+/** Chapter card: full-bleed image with a slow push, big serif title. */
+drawers.chapter = function chapter(ctx, s, t, L) {
+  if (L.assets.image) {
+    drawKenBurns(ctx, L.assets.image, { ...s, pan: s.pan || 'in' }, t, L);
+    ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(0, 0, L.W, L.H);
+  }
+  const a = enter(t, 0.2, 1.0), b = enter(t, 0.6, 1.0);
+  const label = s.kicker ?? (s.number ? `Chapter ${ROMAN[s.number] || s.number}` : '');
+  const f = fit(ctx, L, s.title, { maxW: L.W - 2 * L.m, maxLines: 2, size: (L.portrait ? 120 : 140) * L.u, weight: 900, mono: titleFace(L) });
+  const total = 70 * L.u + f.lines.length * f.lh + (s.subtitle ? 80 * L.u : 0);
+  let y = (L.H - (L.captions ? L.captionH * 0.5 : 0) - total) / 2;
+  ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+  if (label) {
+    ctx.globalAlpha = a; setFont(ctx, L, 34 * L.u, 700); ctx.fillStyle = L.theme.accent;
+    ctx.fillText(String(label).toUpperCase().split('').join('\u2009'), L.W / 2, y);
+  }
+  y += 70 * L.u;
+  ctx.globalAlpha = a; setFont(ctx, L, f.size, 900, titleFace(L)); ctx.fillStyle = '#ffffff';
+  ctx.save(); ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 30 * L.u;
+  f.lines.forEach((ln, i) => ctx.fillText(ln, L.W / 2, y + i * f.lh + (1 - a) * 30 * L.u));
+  ctx.restore();
+  y += f.lines.length * f.lh + 20 * L.u;
+  ctx.globalAlpha = b; ctx.fillStyle = L.theme.accent;
+  ctx.fillRect(L.W / 2 - 80 * L.u * b, y, 160 * L.u * b, 6 * L.u);
+  if (s.subtitle) { setFont(ctx, L, 40 * L.u, 500); ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.fillText(s.subtitle, L.W / 2, y + 30 * L.u); }
+  ctx.globalAlpha = 1;
+  drawCredit(ctx, s, L);
+};
+
+/** Timeline: evenly spaced events on a line; each lights up when the voice reaches it. */
+drawers.timeline = function timeline(ctx, s, t, L) {
+  const y0 = heading(ctx, L, s.title, t);
+  const ev = s.events;
+  const x0 = L.m + 40 * L.u, x1 = L.W - L.m - 40 * L.u;
+  const midY = y0 + (L.H - L.captionH - y0) * 0.48;
+  const a = enter(t, 0.1, 0.8);
+  ctx.globalAlpha = a; ctx.strokeStyle = L.theme.muted; ctx.lineWidth = 4 * L.u;
+  ctx.beginPath(); ctx.moveTo(x0, midY); ctx.lineTo(x0 + (x1 - x0) * a, midY); ctx.stroke();
+  const current = L.reveals.reduce((c, r, i) => (t >= r ? i : c), -1);
+  const step = ev.length > 1 ? (x1 - x0) / (ev.length - 1) : 0;
+  const colW = Math.min(step * 0.95 || (x1 - x0), 420 * L.u);
+  ev.forEach((e, i) => {
+    const x = ev.length > 1 ? x0 + i * step : (x0 + x1) / 2;
+    const r = enter(t, L.reveals[i] ?? 0.3, 0.5);
+    if (r <= 0) return;
+    const on = i === current;
+    ctx.globalAlpha = r;
+    ctx.fillStyle = on ? L.theme.accent : L.theme.text;
+    ctx.beginPath(); ctx.arc(x, midY, (on ? 15 : 10) * L.u * (0.6 + 0.4 * r), 0, Math.PI * 2); ctx.fill();
+    const up = i % 2 === 0;
+    ctx.textAlign = 'center';
+    setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.fillStyle = on ? L.theme.accent : L.theme.text;
+    const when = fitText(ctx, String(e.when ?? ''), colW);
+    setFont(ctx, L, 36 * L.u, 500);
+    const lab = wrap(ctx, String(e.label ?? ''), colW).slice(0, 3);
+    if (up) {
+      const top = midY - 34 * L.u - lab.length * 44 * L.u;
+      ctx.fillStyle = L.theme.muted;
+      lines(ctx, lab, x, top, 44 * L.u, 'center');
+      setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.fillStyle = on ? L.theme.accent : L.theme.text;
+      ctx.textBaseline = 'bottom'; ctx.fillText(when, x, top - 8 * L.u);
+    } else {
+      setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.textBaseline = 'top'; ctx.fillText(when, x, midY + 34 * L.u);
+      setFont(ctx, L, 36 * L.u, 500); ctx.fillStyle = L.theme.muted;
+      lines(ctx, lab, x, midY + 92 * L.u, 44 * L.u, 'center');
+    }
   });
   ctx.globalAlpha = 1;
 };

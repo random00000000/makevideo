@@ -8,11 +8,11 @@
     "source": "github"
   },
   "websiteUrl": "https://random00000000.github.io/makevideo/",
-  "version": "0.4.1",
+  "version": "0.5.0",
   "packages": [
     {
       "registryType": "oci",
-      "identifier": "ghcr.io/random00000000/makevideo:0.4.1",
+      "identifier": "ghcr.io/random00000000/makevideo:0.5.0",
       "transport": {
         "type": "stdio"
       },

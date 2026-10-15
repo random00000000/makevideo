@@ -10,7 +10,7 @@ import { video, check, preview, fromMarkdown, SCENE_TYPES, TRANSITIONS, VOICES, 
 const pkg = JSON.parse(fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'));
 
 const SOURCE = {
-  markdown: { type: 'string', description: 'The video as Markdown. "# Title" opens it; each "## Heading" is a scene. "- items" become bullets, "- Label: 42" items a chart, "![](clip.mp4)" media, a lone paragraph a big statement, "**42%** label" a stat, a ``` fence a code scene. Lines starting with ">" are the narration; without them the visible text is read. Optional front matter: theme, format, voice, brand, output.' },
+  markdown: { type: 'string', description: 'The video as Markdown. "# Title" opens it; each "## Heading" is a scene. "- items" become bullets, "- Label: 42" items a chart, "![](clip.mp4)" media, a lone paragraph a big statement, "**42%** label" a stat, a ``` fence a code scene. Lines starting with ">" are the narration; without them the visible text is read. "![what the image shows]()" pulls a licensed image from Wikimedia Commons; "## Chapter: Name" makes a chapter card; "## Timeline" + "- When: what" a timeline. Optional front matter: style (documentary | history | nature: YouTube documentary look, score, thumbnail, chapters), theme, format, voice, brand, output.' },
   spec: { type: 'object', description: 'Alternative to markdown: a full JSON spec { title, format, theme, voice, scenes: [{ type, say, ... }] }. Call video_reference for every scene type.' },
   baseDir: { type: 'string', description: 'Directory that relative media paths (src, music, output) resolve against. Default: the server working directory.' },
 };

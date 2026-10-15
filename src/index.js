@@ -18,6 +18,9 @@ import { createRenderPool } from './render-pool.js';
 import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE, setup } from './tts.js';
 import { normalize, sentences, forSpeech, cuesFor, SpecError, SCENE_TYPES, FORMATS, lint, speakable } from './spec.js';
 import { fromMarkdown } from './markdown.js';
+import { MOODS, writeScore } from './music.js';
+import { resolveMedia } from './media.js';
+import { writeYouTubePackage } from './youtube.js';
 import { chooseTransition, TRANSITIONS } from './draw.js';
 import { THEMES } from './themes.js';
 
@@ -39,6 +42,7 @@ export { FFMPEG, planFrames } from './render.js';
 export async function video(input, opts = {}) {
   const t0 = Date.now();
   const log = opts.onProgress || (() => {});
+  input = await prepare(input, opts.baseDir, log);
   const spec = normalize(input, { baseDir: opts.baseDir });
   for (const w of lint(spec)) log({ stage: 'lint', message: w });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-'));
@@ -94,14 +98,22 @@ export async function video(input, opts = {}) {
     const list = path.join(tmp, 'list.txt');
     fs.writeFileSync(list, segs.map((s) => `file '${s.replace(/\\/g, '/')}'`).join('\n'));
     const args = ['-y', '-f', 'concat', '-safe', '0', '-i', list, '-i', wav];
+    // Audio: narration (+ music ducked under it by a sidechain compressor), then loudness-
+    // normalized to -14 LUFS / -1.5 dBTP, the YouTube/TikTok/Spotify playback target.
+    const master = `loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo`;
     if (spec.music) {
-      args.push('-stream_loop', '-1', '-i', spec.music, '-filter_complex',
-        `[2:a]volume=${spec.musicVolume},afade=t=out:st=${Math.max(0, total - 2.5)}:d=2.5[m];[1:a][m]amix=inputs=2:normalize=0:duration=first[a]`,
+      let musicFile = spec.music;
+      if (MOODS[spec.music]) musicFile = writeScore(path.join(tmp, 'score.wav'), spec.music, total);
+      args.push('-stream_loop', '-1', '-i', musicFile, '-filter_complex',
+        `[1:a]aresample=48000,aformat=channel_layouts=stereo,asplit=2[v1][v2];` +
+        `[2:a]aresample=48000,aformat=channel_layouts=stereo,volume=${spec.musicVolume},afade=t=out:st=${Math.max(0, total - 3)}:d=3[m];` +
+        `[m][v2]sidechaincompress=threshold=0.03:ratio=6:attack=20:release=450[duck];` +
+        `[v1][duck]amix=inputs=2:normalize=0:duration=first,${master}[a]`,
         '-map', '0:v', '-map', '[a]');
-    } else args.push('-map', '0:v', '-map', '1:a');
+    } else args.push('-filter_complex', `[1:a]${master}[a]`, '-map', '0:v', '-map', '[a]');
     // a quiet credit in the file metadata (spec.credit: false removes it)
     if (spec.credit !== false) args.push('-metadata', `title=${spec.title}`, '-metadata', 'comment=Made with makevideo, https://github.com/random00000000/makevideo');
-    args.push('-c:v', 'copy', '-c:a', 'aac', '-b:a', '160k', '-t', total.toFixed(3), '-movflags', '+faststart', spec.output);
+    args.push('-c:v', 'copy', '-c:a', 'aac', '-b:a', '192k', '-t', total.toFixed(3), '-movflags', '+faststart', spec.output);
     log({ stage: 'mux', message: 'muxing' });
     // mux, poster and GIF are independent: run them side by side (GIF reads the silent segments)
     const base = spec.output.replace(/\.[^.]+$/, '');
@@ -118,9 +130,12 @@ export async function video(input, opts = {}) {
     const cues = timeline.flatMap((tl) => cuesFor(tl.spoken.filter((s) => s.text)).map((c) => ({ ...c, start: c.start + tl.offset, end: c.end + tl.offset })));
     fs.writeFileSync(base + '.srt', toSrt(cues));
     await Promise.all(sidecars);
+    let youtube = null;
+    if (spec.youtube) youtube = await writeYouTubePackage(spec, timeline, base, input._credits || []);
     const scenes = timeline.map((tl, i) => ({ index: i, type: tl.scene.type, title: tl.scene.title ?? null, start: +tl.offset.toFixed(3), duration: +tl.dur.toFixed(3), say: tl.scene.say ?? null }));
     const result = {
-      output: spec.output, srt: base + '.srt', report: base + '.report.json', poster, gif,
+      output: spec.output, srt: base + '.srt', report: base + '.report.json', poster, gif, ...(youtube || {}),
+      credits: input._credits || [],
       duration: +total.toFixed(3), seconds: +((Date.now() - t0) / 1000).toFixed(1),
       width: spec.width, height: spec.height, fps: spec.fps, voice: spec.voice, scenes,
     };
@@ -155,6 +170,7 @@ export function check(input, opts = {}) {
  * No TTS, no video encode — takes about a second. Use it before `video()`.
  */
 export async function preview(input, opts = {}) {
+  input = await prepare(input, opts.baseDir);
   const spec = normalize(input, opts);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-prev-'));
   try {
@@ -183,6 +199,19 @@ export async function preview(input, opts = {}) {
 }
 
 // ------------------------------------------------------------------ internals
+
+/** Resolve stock-image searches and number chapters before validation. Returns a copy. */
+async function prepare(input, baseDir, log = () => {}) {
+  if (Array.isArray(input)) input = { scenes: input };
+  input = { ...input, scenes: (input.scenes || []).map((s) => ({ ...s })) };
+  let chapter = 0;
+  for (const s of input.scenes) if (s.type === 'chapter') { if (s.number === undefined) s.number = ++chapter; s.duration ??= 4; } // chapter cards hold at least 4 s
+  if (input.scenes.some((s) => s.search && !s.src)) {
+    const portrait = input.format && /portrait|shorts|9:16/.test(input.format);
+    input._credits = await resolveMedia(input, { log: (m) => log({ stage: 'media', message: m }), portrait });
+  }
+  return input;
+}
 
 /**
  * TTS processes x ONNX threads. Measured on 6C/12T: 1 process using every core = 1.7x real

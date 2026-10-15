@@ -3,9 +3,9 @@ const SANS = '"MV Inter", "Inter", "Segoe UI", "SF Pro Display", "Helvetica Neue
 const MONO = '"MV JetBrainsMono", "JetBrains Mono", "Cascadia Code", Consolas, "SF Mono", Menlo, "DejaVu Sans Mono", monospace';
 
 const DISPLAY = '"MV Montserrat", ' + SANS;
+const SERIF = '"MV Doc Serif", Georgia, "Times New Roman", serif';
 
 const darkSyntax = { keyword: '#ff9fd0', string: '#b5e48c', number: '#ffcf6b', comment: '#6c7693', fn: '#7cc7ff', punct: '#c3cbe0', text: '#eef1f8' };
-
 export const THEMES = {
   midnight: {
     bg: ['#0a0f1f', '#161d3a'], glow: 'rgba(90,120,255,0.18)',
@@ -34,5 +34,20 @@ export const THEMES = {
     panel: 'rgba(57,255,136,0.06)', panelStrong: 'rgba(2,10,6,0.86)',
     captionBg: 'rgba(0,0,0,0.85)', captionText: '#d8ffe8',
     codeBg: '#020604', codeHl: 'rgba(57,255,136,0.14)', syntax: darkSyntax, font: SANS, mono: MONO, display: DISPLAY,
+  },
+  // documentary styles: serif titles (titleFace), cinematic palettes
+  documentary: {
+    bg: ['#0b0a08', '#1d1811'], glow: 'rgba(216,178,110,0.12)',
+    text: '#f5efe4', muted: '#b9ad99', accent: '#d8b26e', accent2: '#8fb3c9', onAccent: '#140e04',
+    panel: 'rgba(245,239,228,0.06)', panelStrong: 'rgba(10,8,6,0.82)',
+    captionBg: 'rgba(0,0,0,0.72)', captionText: '#fbf7f0',
+    codeBg: '#0e0c09', codeHl: 'rgba(216,178,110,0.16)', syntax: darkSyntax, font: SANS, mono: MONO, display: SERIF, titleFace: 'display',
+  },
+  nature: {
+    bg: ['#06100c', '#122019'], glow: 'rgba(160,214,110,0.12)',
+    text: '#f1f6ee', muted: '#a9bba6', accent: '#e8b93c', accent2: '#8fd16b', onAccent: '#140f02',
+    panel: 'rgba(241,246,238,0.06)', panelStrong: 'rgba(5,10,8,0.82)',
+    captionBg: 'rgba(0,0,0,0.72)', captionText: '#fbfdf9',
+    codeBg: '#07100c', codeHl: 'rgba(232,185,60,0.16)', syntax: darkSyntax, font: SANS, mono: MONO, display: SERIF, titleFace: 'display',
   },
 };

@@ -36,10 +36,19 @@ assert.deepEqual(md.scenes.map((s) => s.type), ['title', 'chart', 'statement', '
 assert.equal(md.theme, 'forge');
 assert.equal(md.scenes[3].say, 'First one. Then two.');
 
+// documentary layer: style presets, markdown chapters/timelines/search, YouTube chapters
+const doc = fromMarkdown('---\nstyle: nature\n---\n## Chapter: The Hunt\n![a skull]()\n> Hunt.\n## Timeline\n- 68 Mya: appears\n- 66 Mya: gone\n> Two. One. Two.\n## Bones\n![bones]()\nBig\n> Bones.');
+assert.deepEqual(doc.scenes.map((s) => s.type), ['chapter', 'timeline', 'image']);
+assert.equal(doc.scenes[0].search, 'a skull');
+const ns = normalize({ ...doc, scenes: doc.scenes.map((s) => ({ ...s, search: undefined, src: path.join(media, 'sample-image.jpg') })) }, { checkFiles: false });
+assert.equal(ns.theme, 'nature'); assert.equal(ns.music, 'wonder'); assert.equal(ns.youtube, true); assert.equal(ns.voice, 'af_heart');
+const { chapters } = await import('../src/youtube.js');
+assert.deepEqual(chapters([{ offset: 0, scene: {} }, { offset: 12, scene: { type: 'chapter', title: 'A' } }, { offset: 30, scene: { type: 'chapter', title: 'B' } }]).map((c) => c.label), ['Intro', 'A', 'B']);
+
 const scenes = Object.entries(SCENE_TYPES).map(([type, def]) => {
   const s = { ...def.example, duration: 1.5 };
   delete s.say;
-  if (type === 'image' || type === 'split') s.src = path.join(media, 'sample-image.jpg');
+  if (type === 'image' || type === 'split' || type === 'chapter') { s.src = path.join(media, 'sample-image.jpg'); delete s.search; }
   if (type === 'clip') s.src = path.join(media, 'sample.gif');
   return s;
 });

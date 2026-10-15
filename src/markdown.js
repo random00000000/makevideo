@@ -13,6 +13,9 @@
 //   plain paragraph          →   statement (use *stars* for accent words)
 //   > spoken line            → narration for the scene. Without it, the visible text is read.
 //   <!-- transition: slide --> scene options as key: value pairs
+//   ![a T. rex skull]()      → stock image: searches Wikimedia Commons for the alt text
+//   ## Chapter: The Hunt     → chapter card (numbered automatically)
+//   ## Timeline + "- When: what" items → timeline
 
 const VID = /\.(mp4|webm|mov|mkv|m4v|avi|gif)$/i;
 
@@ -75,7 +78,7 @@ function toScene({ level, heading, lines }) {
         if (k && v.length) opts[k.trim()] = parseValue(v.join(':').trim());
       }
     } else if (t.startsWith('>')) say.push(t.replace(/^>\s?/, ''));
-    else if ((m = /^!\[(.*?)\]\((.*?)\)/.exec(t))) media = { alt: m[1], src: m[2] };
+    else if ((m = /^!\[(.*?)\]\((.*?)\)/.exec(t))) media = /^(|search)$/i.test(m[2].trim()) ? { alt: m[1], search: m[1] } : { alt: m[1], src: m[2] };
     else if ((m = /^(?:[-*+]|\d+[.)])\s+(.*)$/.exec(t))) items.push({ text: m[1], ordered: /^\d/.test(t) });
     else if ((m = /^\*\*(.+?)\*\*\s*(.*)$/.exec(t)) && !paras.length && !items.length) stat = { value: m[1], label: m[2] };
     else paras.push(t);
@@ -84,14 +87,20 @@ function toScene({ level, heading, lines }) {
   const title = heading || undefined;
   const para = paras.join(' ');
   const bars = items.map((it) => /^(.+?):\s*(-?[\d.,]+)\s*(.*)$/.exec(it.text));
-  if (level === 1 && !media && !items.length && !code) {
+  const mediaRef = media ? (media.search ? { search: media.search } : { src: media.src }) : {};
+  const chapterM = /^chapter\b[\s\d.:–-]*(.*)$/i.exec(heading || '');
+  if (chapterM && level >= 2) {
+    Object.assign(s, { type: 'chapter', title: chapterM[1].trim() || heading, subtitle: para || undefined, ...mediaRef });
+  } else if (/timeline/i.test(heading || '') && items.length && items.every((i) => i.text.includes(':'))) {
+    Object.assign(s, { type: 'timeline', title, events: items.map((i) => ({ when: i.text.split(':')[0].trim(), label: i.text.split(':').slice(1).join(':').trim() })) });
+  } else if (level === 1 && !media && !items.length && !code) {
     Object.assign(s, { type: 'title', title, subtitle: para || undefined });
   } else if (code) {
     Object.assign(s, { type: 'code', title, code: code.join('\n'), lang });
-  } else if (media && (items.length || para)) {
-    Object.assign(s, { type: 'split', src: media.src, title, ...(items.length ? { items: items.map((i) => i.text) } : { text: para }) });
+  } else if (media && items.length) {
+    Object.assign(s, { type: 'split', ...mediaRef, title, items: items.map((i) => i.text) });
   } else if (media) {
-    Object.assign(s, { type: VID.test(media.src) ? 'clip' : 'image', src: media.src, title, subtitle: para || media.alt || undefined });
+    Object.assign(s, { type: media.src && VID.test(media.src) ? 'clip' : 'image', ...mediaRef, title, subtitle: para || undefined });
   } else if (items.length && bars.every(Boolean)) {
     const unit = bars[0][3] ? ' ' + bars[0][3] : '';
     Object.assign(s, { type: 'chart', title, unit, bars: bars.map((b) => ({ label: b[1], value: Number(b[2].replace(/,/g, '')) })) });

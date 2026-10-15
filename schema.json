@@ -87,7 +87,8 @@
       "type": "boolean"
     },
     "music": {
-      "type": "string"
+      "type": "string",
+      "description": "generated score (documentary | epic | wonder | tension) or an audio file path"
     },
     "musicVolume": {
       "type": "number"
@@ -140,20 +141,22 @@
         "properties": {
           "type": {
             "enum": [
-              "title",
-              "statement",
               "bullets",
-              "steps",
-              "decisions",
+              "chapter",
               "chart",
-              "split",
-              "image",
               "clip",
               "code",
-              "stat",
-              "quote",
               "compare",
-              "outro"
+              "decisions",
+              "image",
+              "outro",
+              "quote",
+              "split",
+              "stat",
+              "statement",
+              "steps",
+              "timeline",
+              "title"
             ]
           },
           "say": {
@@ -310,6 +313,48 @@
               "left",
               "right"
             ]
+          },
+          "search": {
+            "type": "string",
+            "description": "find a freely licensed image on Wikimedia Commons instead of src"
+          },
+          "events": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "when": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "number": {
+            "type": "integer"
+          },
+          "pan": {
+            "enum": [
+              "in",
+              "out",
+              "left",
+              "right",
+              "up",
+              "down"
+            ]
+          },
+          "focus": {
+            "type": "array",
+            "items": {
+              "type": "number"
+            },
+            "description": "[x, y] 0..1: part of the image kept in frame"
+          },
+          "credit": {
+            "type": "string",
+            "description": "attribution line shown on the image"
           }
         }
       }
@@ -326,6 +371,25 @@
         "cut"
       ],
       "default": "auto"
+    },
+    "style": {
+      "enum": [
+        "documentary",
+        "history",
+        "nature",
+        "explainer"
+      ],
+      "description": "whole look + score + YouTube package"
+    },
+    "youtube": {
+      "type": "boolean",
+      "description": "also write .thumbnail.jpg and .description.txt (chapters + credits)"
+    },
+    "thumbnailText": {
+      "type": "string"
+    },
+    "description": {
+      "type": "string"
     }
   }
 }

@@ -5,6 +5,7 @@ import path from 'node:path';
 import { THEMES } from './themes.js';
 import { VOICES, DEFAULT_VOICE } from './tts.js';
 import { TRANSITIONS } from './draw.js';
+import { MOODS } from './music.js';
 
 export const FORMATS = {
   landscape: [1920, 1080], '16:9': [1920, 1080],
@@ -27,6 +28,8 @@ export const SCENE_TYPES = {
   statement: { needs: ['text'], example: { type: 'statement', text: 'Renders in *seconds*, not minutes.', say: 'It renders in seconds, not minutes.' } },
   chart: { needs: ['bars'], example: { type: 'chart', title: 'Render time', unit: ' s', bars: [{ label: 'Before', value: 160 }, { label: 'After', value: 35 }], say: 'Render time. Before, one hundred sixty seconds. After, thirty five.' } },
   split: { needs: ['src'], example: { type: 'split', src: 'screenshot.png', title: 'The new HUD', items: ['Cleaner', 'Faster to read'], say: 'The new HUD. It is cleaner. And faster to read.' } },
+  chapter: { needs: ['title'], example: { type: 'chapter', number: 2, title: 'The Tyrant King', search: 'Tyrannosaurus rex skeleton', say: 'Chapter two. The tyrant king.' } },
+  timeline: { needs: ['events'], example: { type: 'timeline', title: 'When it lived', events: [{ when: '68 Mya', label: 'T. rex appears' }, { when: '66 Mya', label: 'Asteroid impact' }], say: 'When it lived. It appears sixty eight million years ago. Two million years later, the asteroid hits.' } },
   outro: { needs: ['title'], example: { type: 'outro', title: 'Thanks for watching', say: 'That is all for now.' } },
 };
 
@@ -47,9 +50,26 @@ export class SpecError extends Error {
 const IMG = /\.(png|jpe?g|webp|bmp|avif)$/i;
 const VID = /\.(mp4|webm|mov|mkv|m4v|avi|gif)$/i; // GIFs play as clips
 
+/**
+ * Style presets: one word that sets the whole look and sound. Anything set in the spec wins.
+ *   documentary: serif titles, warm palette, reflective score, slow crossfades (history channels)
+ *   history:     documentary look with a war-drum score (battles, empires)
+ *   nature:      green palette, open "wonder" score (science, dinosaurs, nature)
+ */
+export const STYLES = {
+  documentary: { theme: 'documentary', music: 'documentary', musicVolume: 0.3, transition: 'fade', padAfter: 0.75, youtube: true },
+  history: { theme: 'documentary', music: 'epic', musicVolume: 0.3, transition: 'fade', padAfter: 0.75, youtube: true },
+  nature: { theme: 'nature', music: 'wonder', musicVolume: 0.3, transition: 'fade', padAfter: 0.75, youtube: true },
+  explainer: {},
+};
+
 export function normalize(input, { baseDir = process.cwd(), checkFiles = true } = {}) {
   const p = [];
   if (Array.isArray(input)) input = { scenes: input };
+  if (input && input.style) {
+    if (!STYLES[input.style]) throw new SpecError([`style "${input.style}" is unknown. Use one of: ${Object.keys(STYLES).join(', ')}.`]);
+    input = { ...STYLES[input.style], ...input };
+  }
   if (!input || typeof input !== 'object') throw new SpecError(['Spec must be an object like { title, scenes: [...] }.']);
   const fmt = input.format ?? 'landscape';
   let [width, height] = FORMATS[fmt] || [];
@@ -68,14 +88,20 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
   const scenes = (input.scenes || []).map((raw, i) => {
     const s = { ...raw };
     const where = `scenes[${i}]`;
+    if (s.search && !s.src && !s.type) s.type = 'image';
     if (!s.type) s.type = s.src ? (s.items || s.text ? 'split' : VID.test(s.src) ? 'clip' : 'image') : s.bars ? 'chart' : s.items ? 'bullets' : s.code ? 'code' : s.value != null ? 'stat' : s.text ? 'statement' : 'title';
     const def = SCENE_TYPES[s.type];
     if (!def) { p.push(`${where}.type "${s.type}" is unknown. Use one of: ${Object.keys(SCENE_TYPES).join(', ')}.`); return s; }
-    for (const k of def.needs) if (s[k] == null || s[k] === '') p.push(`${where} (${s.type}) is missing "${k}". Example: ${JSON.stringify(def.example)}`);
+    for (const k of def.needs) if ((s[k] == null || s[k] === '') && !(k === 'src' && s.search)) p.push(`${where} (${s.type}) is missing "${k}". Example: ${JSON.stringify(def.example)}`);
     if (s.items && !Array.isArray(s.items)) p.push(`${where}.items must be an array of strings.`);
     if (s.say != null && typeof s.say !== 'string' && !Array.isArray(s.say)) p.push(`${where}.say must be a string (or array of sentences).`);
     if (Array.isArray(s.say)) s.say = s.say.join(' ');
+    if (s.type === 'chapter' && s.number == null) s.number = undefined;
     if (!s.say && !s.duration) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in makevideo: add "say": "..." or set "duration": seconds for a silent beat.`);
+    if (s.type === 'timeline' && s.events) {
+      if (!Array.isArray(s.events)) p.push(`${where}.events must be an array like ${JSON.stringify(def.example.events)}`);
+      else s.events = s.events.map((e) => (typeof e === 'string' ? { when: e.split(':')[0], label: e.split(':').slice(1).join(':').trim() } : e));
+    }
     if (s.type === 'chart' && s.bars) {
       s.bars = Array.isArray(s.bars)
         ? s.bars.map((b) => (Array.isArray(b) ? { label: String(b[0]), value: Number(b[1]) } : { label: String(b.label), value: Number(b.value) }))
@@ -83,10 +109,11 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
       if (s.bars.some((b) => !Number.isFinite(b.value))) p.push(`${where}.bars values must be numbers. Example: ${JSON.stringify(def.example.bars)}`);
     }
     if (s.transition && !TRANSITIONS.includes(s.transition)) p.push(`${where}.transition "${s.transition}" is unknown. Use one of: ${TRANSITIONS.join(', ')}.`);
+    if (s.search && !s.src) { /* resolved from Wikimedia Commons at render time */ }
     if (s.src) {
       s.srcPath = path.resolve(baseDir, s.src);
       if (checkFiles && !fs.existsSync(s.srcPath)) p.push(`${where}.src not found: ${s.srcPath}`);
-      if (s.type === 'image' && !IMG.test(s.src)) p.push(`${where}.src should be a still image (png/jpg/webp). For video or GIF use type "clip".`);
+      if ((s.type === 'image' || s.type === 'chapter') && !IMG.test(s.src)) p.push(`${where}.src should be a still image (png/jpg/webp). For video or GIF use type "clip".`);
       if (s.type === 'split' && !VID.test(s.src) && !IMG.test(s.src)) p.push(`${where}.src should be an image or a video.`);
       if (s.type === 'clip' && !VID.test(s.src)) p.push(`${where}.src should be a video or GIF (mp4/webm/mov/gif). For stills use type "image".`);
     }
@@ -94,9 +121,10 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
   });
 
   let music = null;
-  if (input.music) {
+  if (input.music && MOODS[input.music]) music = input.music; // generated score
+  else if (input.music) {
     music = path.resolve(baseDir, input.music);
-    if (checkFiles && !fs.existsSync(music)) p.push(`music not found: ${music}`);
+    if (checkFiles && !fs.existsSync(music)) p.push(`music not found: ${music}. Use a file, or a generated mood: ${Object.keys(MOODS).join(', ')}.`);
   }
   if (input.transition && !TRANSITIONS.includes(input.transition)) p.push(`transition "${input.transition}" is unknown. Use one of: ${TRANSITIONS.join(', ')}.`);
   const captionStyle = input.captionStyle ?? (height > width ? 'bold' : 'classic');
@@ -122,6 +150,10 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     gif: input.gif ?? false,
     transition: input.transition ?? 'auto',
     credit: input.credit ?? true,
+    style: input.style ?? null,
+    youtube: input.youtube ?? false,
+    thumbnailText: input.thumbnailText ?? null,
+    description: input.description ?? null,
     progressBar: input.progressBar ?? true,
     music, musicVolume: input.musicVolume ?? 0.12,
     pronounce: { ...DEFAULT_PRONOUNCE, ...(input.pronounce ?? {}) },
@@ -249,6 +281,6 @@ export function lint(spec) {
     if (i >= 2 && spec.scenes[i - 1].type === s.type && spec.scenes[i - 2].type === s.type) w.push(`${where}: third ${s.type} scene in a row. Vary scene types (statement, stat, split, chart) to keep it moving.`);
   });
   const first = spec.scenes[0]?.type;
-  if (first && !['title', 'statement', 'clip', 'stat'].includes(first)) w.push(`scenes[0] (${first}): open with a hook, a title, statement, stat or clip.`);
+  if (first && !['title', 'statement', 'clip', 'stat', 'image', 'chapter'].includes(first)) w.push(`scenes[0] (${first}): open with a hook: a title, statement, stat, clip or full-bleed image.`);
   return w;
 }
