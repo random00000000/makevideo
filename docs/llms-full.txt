@@ -102,6 +102,14 @@ What you get, with no other settings:
 
 **From a transcript:** treat another creator's transcript as research, not as a script. Have the agent write its own narration. Republishing someone else's script is copyright infringement, and YouTube demonetizes it as "reused content".
 
+## Text on screen vs. narration (the cohesion rules)
+
+The engine enforces these, and following them in the script makes videos land:
+
+- **The screen shows keywords; the voice says sentences.** Titles, bullets and labels are short ("Faster builds"); narration is the full thought ("Builds are now twice as fast").
+- **Big statements use the narrator's own words.** Statement words appear one by one *as they are spoken*, so put the same words in `say`. `check` warns when they don't match.
+- **Captions never repeat the screen.** Any caption whose words are already displayed is hidden on screen automatically (the `.srt` keeps every line). Use `captions: "all"` to turn this off.
+
 ## Write Markdown, get a video
 
 ```md
@@ -386,6 +394,12 @@ Set `style: documentary` (history), `history` (battles, empires) or `nature` (sc
 `title`, `statement` (text; `*stars*` = accent words), `bullets`, `steps`, `decisions`, `chart` (bars [{label, value}], unit), `split` (src + items: media beside text), `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`. Transitions are automatic.
 
 For variety, open with a `title` or `statement`, mix in `chart`/`stat`/`split`, and avoid three scenes of the same type in a row. `check` warns you about this.
+
+## Cohesion rules
+
+- On-screen text is keywords; `say` is full sentences.
+- In a `statement`, use words the narrator actually says. They appear in time with the voice.
+- Captions that repeat on-screen text are hidden automatically, so you never need to avoid matching words.
 
 ## Writing narration
 

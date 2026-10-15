@@ -47,6 +47,12 @@ Set `style: documentary` (history), `history` (battles, empires) or `nature` (sc
 
 For variety, open with a `title` or `statement`, mix in `chart`/`stat`/`split`, and avoid three scenes of the same type in a row. `check` warns you about this.
 
+## Cohesion rules
+
+- On-screen text is keywords; `say` is full sentences.
+- In a `statement`, use words the narrator actually says. They appear in time with the voice.
+- Captions that repeat on-screen text are hidden automatically, so you never need to avoid matching words.
+
 ## Writing narration
 
 - Write `say` naturally; symbols like 42%, v1.2, $3M and 4.6x are spoken correctly automatically.

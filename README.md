@@ -102,6 +102,14 @@ What you get, with no other settings:
 
 **From a transcript:** treat another creator's transcript as research, not as a script. Have the agent write its own narration. Republishing someone else's script is copyright infringement, and YouTube demonetizes it as "reused content".
 
+## Text on screen vs. narration (the cohesion rules)
+
+The engine enforces these, and following them in the script makes videos land:
+
+- **The screen shows keywords; the voice says sentences.** Titles, bullets and labels are short ("Faster builds"); narration is the full thought ("Builds are now twice as fast").
+- **Big statements use the narrator's own words.** Statement words appear one by one *as they are spoken*, so put the same words in `say`. `check` warns when they don't match.
+- **Captions never repeat the screen.** Any caption whose words are already displayed is hidden on screen automatically (the `.srt` keeps every line). Use `captions: "all"` to turn this off.
+
 ## Write Markdown, get a video
 
 ```md

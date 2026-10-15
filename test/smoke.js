@@ -45,6 +45,14 @@ assert.equal(ns.theme, 'nature'); assert.equal(ns.music, 'wonder'); assert.equal
 const { chapters } = await import('../src/youtube.js');
 assert.deepEqual(chapters([{ offset: 0, scene: {} }, { offset: 12, scene: { type: 'chapter', title: 'A' } }, { offset: 30, scene: { type: 'chapter', title: 'B' } }]).map((c) => c.label), ['Intro', 'A', 'B']);
 
+// cohesion: big words land when spoken; captions never duplicate on-screen text
+const { syncTokens, dedupeCues } = await import('../src/sync.js');
+const said = [{ text: 'And the famous tiny arms? About a meter long.', start: 0.35, end: 3 }, { text: 'Yet each arm could curl two hundred kilograms.', start: 3.2, end: 6 }];
+const tt = syncTokens('Those tiny arms could curl 200 kilograms.'.split(' '), said, 0.35);
+assert.ok(tt[1] < 1.5 && tt[3] > 3.2 && tt[6] > tt[5] && tt[5] > tt[4], 'statement words follow the voice: ' + tt.map((t) => t.toFixed(2)));
+assert.deepEqual(dedupeCues([{ text: 'Chapter one.' }, { text: 'Discovery.' }, { text: 'In 1902 Barnum Brown dug it up.' }], { type: 'chapter', title: 'Discovery' }).map((c) => c.text), ['In 1902 Barnum Brown dug it up.']);
+assert.deepEqual(dedupeCues([{ text: 'Builds are faster.' }, { text: 'Three things changed.' }], { type: 'bullets', title: 'What changed', items: ['Faster builds'] }).map((c) => c.text), ['Three things changed.']);
+
 const scenes = Object.entries(SCENE_TYPES).map(([type, def]) => {
   const s = { ...def.example, duration: 1.5 };
   delete s.say;

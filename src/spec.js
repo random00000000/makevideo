@@ -144,7 +144,8 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     theme, voice,
     speed: input.speed ?? 1,
     brand: input.brand ?? null,
-    captions: (input.captions ?? true) && captionStyle !== 'none',
+    captions: (input.captions ?? true) !== false && captionStyle !== 'none',
+    captionsAll: input.captions === 'all',
     captionStyle,
     font,
     gif: input.gif ?? false,
@@ -275,6 +276,11 @@ export function lint(spec) {
       if (s.say && ss < s.items.length) w.push(`${where}: ${s.items.length} items but ${ss} sentence(s). Write one intro sentence plus one sentence per item so items appear with the voice.`);
     }
     if (s.title && words(s.title) > 10) w.push(`${where}: title is ${words(s.title)} words. Aim for 3 to 8.`);
+    if (s.type === 'statement' && s.say) {
+      const said = new Set(String(s.say).toLowerCase().split(/\s+/).map((w) => w.replace(/[^a-z0-9]/g, '')));
+      const big = String(s.text).toLowerCase().split(/\s+/).map((w) => w.replace(/[^a-z0-9]/g, '')).filter((w) => w.length >= 3);
+      if (big.length && big.filter((w) => said.has(w)).length / big.length < 0.5) w.push(`${where}: the big text isn't in the narration, so its words can't land with the voice. Put the statement's words in "say".`);
+    }
     if (s.type === 'statement' && words(s.text) > 14) w.push(`${where}: statement is ${words(s.text)} words. Statements hit hardest under 12 words.`);
     if (s.type === 'chart' && s.bars && s.bars.length > 8) w.push(`${where}: ${s.bars.length} bars. Use 8 or fewer.`);
     if (spec.height > spec.width && ['code', 'compare', 'chart'].includes(s.type)) w.push(`${where}: dense scene in a portrait video. Prefer statement, stat, clip or split for shorts.`);

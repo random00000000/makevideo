@@ -6,6 +6,7 @@ import path from 'node:path';
 import { createCanvas, loadImage } from '@napi-rs/canvas';
 import ffmpegPath from 'ffmpeg-static';
 import { cuesFor, revealTimes } from './spec.js';
+import { syncTokens, dedupeCues } from './sync.js';
 import { drawFrame, makeLayout, wordTimes, isVideoScene, splitRect } from './draw.js';
 
 export const FFMPEG = process.env.MAKEVIDEO_FFMPEG || ffmpegPath;
@@ -22,11 +23,8 @@ export async function sceneLayout(spec, tl) {
   if (s.srcPath && (s.type === 'image' || s.type === 'chapter' || (s.type === 'split' && !isVideoScene(s)))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
   let reveals, revealLen = 0.65;
   if (s.type === 'statement') {
-    // words pop in at a speaking rhythm across the first ~70% of the narration
-    const nW = String(s.text).split(/\s+/).filter(Boolean).length;
-    const speechEnd = tl.spoken.length ? tl.spoken[tl.spoken.length - 1].end : tl.dur;
-    const step = Math.min(0.3, Math.max(0.1, ((speechEnd - spec.padBefore) * 0.7) / nW));
-    reveals = Array.from({ length: nW }, (_, i) => spec.padBefore * 0.6 + i * step);
+    // karaoke: each big word appears when the narrator says it
+    reveals = syncTokens(String(s.text).replace(/\*/g, '').split(/\s+/).filter(Boolean), tl.spoken, spec.padBefore);
     revealLen = 0.35;
   } else {
     const n = s.type === 'compare' ? 2 : s.type === 'timeline' ? s.events.length : s.type === 'chart' ? s.bars.length : s.items?.length || (s.type === 'split' && s.text ? 1 : 0);
@@ -36,7 +34,8 @@ export async function sceneLayout(spec, tl) {
   return makeLayout(spec, s, {
     dur: tl.dur, index: tl.index ?? 0, count: tl.count ?? 1, assets, reveals, revealLen,
     transition: tl.transition ?? 'none', prevFrame: tl.prevFrame ?? null, nextDip: tl.nextDip ?? false,
-    cues: cuesFor(tl.spoken.filter((x) => x.text), spec.captionStyle === 'bold' ? 4 : 12),
+    // captions never repeat what the screen already shows (captions: "all" keeps every cue)
+    cues: (spec.captionsAll ? (c) => c : (c) => dedupeCues(c, s))(cuesFor(tl.spoken.filter((x) => x.text), spec.captionStyle === 'bold' ? 4 : 12)),
   });
 }
 
