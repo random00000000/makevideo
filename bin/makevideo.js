@@ -4,14 +4,17 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 import { STARTERS } from '../src/starters.js';
-import { video, check, preview, record, setup, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
+import { video, check, preview, record, shoot, analyzeTrack, FFMPEG, setup, fromMarkdown, VOICES, THEMES, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError } from '../src/index.js';
 
 const HELP = `makevideo — fast, standard video generation for AI agents.
 
   makevideo <spec.json|spec.js|notes.md>   render the video (mp4 + srt + report.json + jpg)
   makevideo check <spec>             validate only, print estimated length (instant)
   makevideo preview <spec>           contact sheet PNG of every scene (about 1 s, no TTS)
-  makevideo init [file] [--style documentary|shorts|explainer]   write a starter (JSON, or Markdown per style)
+  makevideo init [file] [--style documentary|shorts|explainer|trailer]   write a starter (JSON, or Markdown per style)
+  makevideo shoot <trailer.md> [--all] [--game "npm start"]
+                                    launch your Electron game and film every shot in the beat sheet
+  makevideo beats <song.mp3>        tempo, beat grid and sections of your music (for exact sync)
   makevideo record <out.mp4> --seconds 10 [--window "Game Title"] [--fps 30]
                                     record the screen (or one window) for clip scenes
   makevideo agents [--claude --cursor --copilot --all --global]
@@ -51,7 +54,7 @@ for (let i = 0; i < argv.length; i++) {
   if (a === '-o' || a === '--output') flags.output = argv[++i];
   else if (a.startsWith('--')) {
     const k = a.slice(2);
-    if (['format', 'voice', 'theme', 'quality', 'seconds', 'window', 'fps', 'style'].includes(k)) flags[k] = argv[++i];
+    if (['format', 'voice', 'theme', 'quality', 'seconds', 'window', 'fps', 'style', 'game', 'only'].includes(k)) flags[k] = argv[++i];
     else flags[k] = true;
   } else pos.push(a);
 }
@@ -108,13 +111,27 @@ try {
 `);
     const r = await record({ output: rest[0], seconds: Number(flags.seconds), fps: Number(flags.fps || 30), window: flags.window });
     out({ ok: true, ...r }, `recorded ${r.output}`);
+  } else if (cmd === 'shoot') {
+    const { spec, baseDir } = await load(rest[0]);
+    const r = await shoot(spec, { baseDir, all: !!flags.all, game: flags.game, only: flags.only ? String(flags.only).split(',') : undefined, onProgress: (e) => !json && process.stderr.write(`[${e.stage}] ${e.message}\n`) });
+    out({ ok: true, ...r }, r.shots.length ? `filmed ${r.shots.length} shot(s):\n${r.shots.map((s) => '  ' + s.file).join('\n')}
+next: makevideo ${rest[0]}` : 'nothing to film');
+  } else if (cmd === 'beats') {
+    if (!rest[0]) fail('usage: makevideo beats <song.mp3>');
+    const m = await analyzeTrack(FFMPEG, rest[0]);
+    const sec = m.sections.map((x) => `  ${x.start.toFixed(1).padStart(6)}s  ${x.name}`).join('\n');
+    out({ ok: true, bpm: m.bpm, firstBeat: m.beats[0], downbeats: m.downbeats, hits: m.hits, sections: m.sections, duration: m.duration },
+      `${m.bpm} bpm · first beat ${m.beats[0]?.toFixed(3)}s · ${m.downbeats.length} bars · ${m.duration.toFixed(1)}s\nsections:\n${sec}\nfor exact sync put in the frontmatter:  bpm: ${m.bpm}   musicOffset: ${m.beats[0]?.toFixed(3)}`);
   } else if (cmd === 'init') {
     const style = flags.style;
-    const f = rest[0] || (style ? 'video.md' : 'video.json');
+    const f = rest[0] || (style === 'trailer' ? 'trailer.md' : style ? 'video.md' : 'video.json');
     if (fs.existsSync(f)) fail(`${f} already exists`);
     if (style && !STARTERS[style]) fail(`unknown --style "${style}". Use: ${Object.keys(STARTERS).join(', ')}`);
     fs.writeFileSync(f, style ? STARTERS[style] : JSON.stringify(STARTER, null, 2) + '\n');
-    out({ ok: true, file: f }, `wrote ${f} — edit it, then: makevideo ${f}`);
+    out({ ok: true, file: f }, style === 'trailer' ? `wrote ${f}: edit the beats and shots, then:
+  makevideo preview ${f}   (storyboard on the beat grid)
+  makevideo shoot ${f}     (films every shot from your Electron game)
+  makevideo ${f}           (renders the trailer)` : `wrote ${f} — edit it, then: makevideo ${f}`);
   } else if (cmd === 'check') {
     const { spec, baseDir } = await load(rest[0]);
     const r = check(spec, { baseDir });

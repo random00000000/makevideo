@@ -79,6 +79,44 @@ const { STARTERS } = await import('../src/starters.js');
 for (const [name, md] of Object.entries(STARTERS)) {
   const r = check(fromMarkdown(md));
   assert.ok(r.ok, `${name} starter: ${JSON.stringify(r.problems)}`);
-  assert.deepEqual(r.warnings, [], `${name} starter has lint warnings: ${r.warnings}`);
+  const warnings = r.warnings.filter((w) => !/not been filmed/.test(w)); // trailer shots are filmed later
+  assert.deepEqual(warnings, [], `${name} starter has lint warnings: ${warnings}`);
 }
 console.log(`ok: ${Object.keys(STARTERS).length} starters valid and lint-clean`);
+
+// trailer mode: beat sheet parsing, beat-grid layout, lint, and the injected Electron script
+{
+  const { layoutOnBeats, lintTrailer, shapeScenes, atempoChain } = await import('../src/trailer.js');
+  const { createRequire } = await import('node:module');
+  const md = fs.readFileSync(new URL('../examples/game/trailer.md', import.meta.url), 'utf8');
+  const spec = fromMarkdown(md);
+  assert.equal(spec.style, 'trailer');
+  const types = spec.scenes.map((s) => s.type).join(',');
+  assert.equal(types, 'clip,slam,clip,slam,clip,clip,clip,clip,clip,clip,logo,cta');
+  assert.equal(spec.scenes[0].shot.camera, 'orbit hero 12 3 20 80');
+  assert.match(spec.scenes[9].shot.setup, /game\.explode/);
+  assert.equal(spec.scenes[0].src, 'shots/calm-open.mp4');
+
+  // every cut lands within half a frame of its beat
+  const scenes = shapeScenes([{ type: 'clip', beats: 3 }, { type: 'slam', text: 'GO' }, { type: 'cta' }]);
+  const beat = 60 / 113, map = { beats: Array.from({ length: 40 }, (_, i) => i * beat), hits: [3 * beat] };
+  const lay = layoutOnBeats(scenes, map, 30);
+  [0, 3, 5].forEach((b, i) => assert.ok(Math.abs(lay[i].start - b * beat) <= 0.5 / 30 + 1e-9, `cut ${i} off beat`));
+  assert.equal(lay[1].onHit, true);
+  for (let i = 0; i < lay.length - 1; i++) assert.equal(Math.round(lay[i].start * 30) + lay[i].frames, Math.round(lay[i + 1].start * 30));
+
+  // lint catches the classic mistakes
+  const bad = { fps: 30, scenes: [{ type: 'logo' }, { type: 'slam', text: 'a b c d e f g h' }, { type: 'clip' }] };
+  const w = lintTrailer(bad, [{ start: 0, frames: 200 }, { start: 6.7, frames: 30 }, { start: 7.7, frames: 30 }]).join('\n');
+  for (const k of ['before any gameplay', 'before 5 s', 'call to action', 'words']) assert.ok(w.includes(k), `lint should flag: ${k}`);
+  assert.equal(atempoChain(0.25), 'atempo=0.5,atempo=0.5,');
+
+  // check() works before shooting: unfilmed shots are suggestions, not errors
+  const c = check({ ...spec, scenes: spec.scenes.map((s) => (s.type === 'clip' ? { ...s, src: 'shots/never-filmed.mp4' } : s)) });
+  assert.ok(c.ok && c.unfilmed === 8, JSON.stringify(c));
+
+  // the script injected into the game parses
+  const { RENDERER } = createRequire(import.meta.url)('../src/electron.cjs');
+  new Function(RENDERER);
+  console.log('ok: trailer beat sheet, beat grid, lint, check, electron script');
+}

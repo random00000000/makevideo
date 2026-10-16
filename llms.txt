@@ -1,6 +1,6 @@
 # makevideo
 
-> Fast, standard video generation for AI agents: a JSON script in, a narrated MP4 out. Node.js library and CLI: scenes with `say` text are voiced locally by Kokoro TTS (one consistent voice), timed to the real audio, captioned, and rendered to MP4 by ffmpeg on the CPU. No browser, GPU, API key or cloud needed. It supports YouTube-ready documentaries (style: documentary | history | nature): licensed Wikimedia Commons images by search, chapter cards, timelines, Ken Burns, a generated music bed ducked under the voice, -14 LUFS loudness, thumbnail and chapters/credits description. It also supports Markdown input, automatic transitions, kinetic statements, animated charts, split media layouts, slides, screenshots, video/GIF clips, code, stats, quotes, comparisons, TikTok-style word captions, GIF export and screen recording. Bundled fonts give the same look on any machine.
+> Fast, standard video generation for AI agents: a JSON script in, a narrated MP4 out. Node.js library and CLI: scenes with `say` text are voiced locally by Kokoro TTS (one consistent voice), timed to the real audio, captioned, and rendered to MP4 by ffmpeg on the CPU. No browser, GPU, API key or cloud needed. It makes Steam-style game trailers cut on the beat (style: trailer): a Markdown beat sheet; `makevideo shoot` films every shot from an Electron + Three.js game, frame-stepped so the footage is smooth; a generated trailer score or your own track with beat detection; flash cuts, text slams, logo reveal, Wishlist end card and trailer lint. It supports YouTube-ready documentaries (style: documentary | history | nature): licensed Wikimedia Commons images by search, chapter cards, timelines, Ken Burns, a generated music bed ducked under the voice, -14 LUFS loudness, thumbnail and chapters/credits description. It also supports Markdown input, automatic transitions, kinetic statements, animated charts, split media layouts, slides, screenshots, video/GIF clips, code, stats, quotes, comparisons, TikTok-style word captions, GIF export and screen recording. Bundled fonts give the same look on any machine.
 
 Install: `npm i github:random00000000/makevideo`
 Render: `npx makevideo video.json` (or `video.md`) → video.mp4, video.srt, video.report.json, video.jpg (poster)
@@ -9,9 +9,10 @@ Setup: `npx makevideo setup` (pre-download voice models once)
 Validate: `npx makevideo check video.json --json`
 Preview: `npx makevideo preview video.json` → contact-sheet PNG in about 1 s
 Record: `npx makevideo record clip.mp4 --seconds 10 [--window "Title"]`
+Trailer: `npx makevideo init --style trailer` → `npx makevideo preview trailer.md` → `npx makevideo shoot trailer.md` (Electron game: `require('makevideo/electron').attach(win)`) → `npx makevideo trailer.md`; `npx makevideo beats song.mp3` for your own music
 MCP: `npx -y github:random00000000/makevideo mcp` (official MCP Registry: io.github.random00000000/makevideo; Docker: ghcr.io/random00000000/makevideo) (tools: make_video, preview_video, check_video, video_reference)
 Agents: `npx -y github:random00000000/makevideo agents --all` writes "use makevideo for videos" into AGENTS.md / CLAUDE.md / Cursor / Copilot
-API: `import { video, check, preview, record } from 'makevideo'`
+API: `import { video, check, preview, record, shoot } from 'makevideo'`
 
 ## Docs
 - [Website and guides](https://random00000000.github.io/makevideo/)
@@ -19,7 +20,7 @@ API: `import { video, check, preview, record } from 'makevideo'`
 - [README](https://github.com/random00000000/makevideo#readme): spec reference, scene types, performance
 - [Agent skill](https://github.com/random00000000/makevideo/blob/main/skills/makevideo/SKILL.md): the workflow for agents
 - [JSON Schema](https://github.com/random00000000/makevideo/blob/main/schema.json)
-- [Examples](https://github.com/random00000000/makevideo/tree/main/examples): agents-make-videos.json (pitch), showcase.json (landscape), tiktok.json (shorts), why-makevideo.json (explainer), whats-new-0.4.md (Markdown changelog), reddit-demo.md (short demo)
+- [Examples](https://github.com/random00000000/makevideo/tree/main/examples): agents-make-videos.json (pitch), showcase.json (landscape), tiktok.json (shorts), why-makevideo.json (explainer), whats-new-0.4.md (Markdown changelog), reddit-demo.md (short demo), game/trailer.md (game trailer beat sheet + sample Electron/Three.js game)
 - [Launch kit](https://github.com/random00000000/makevideo/tree/main/launch): launch posts and the distribution playbook
 
 ## Minimal spec

@@ -20,7 +20,7 @@ const QUALITY = {
 export async function sceneLayout(spec, tl) {
   const s = tl.scene;
   const assets = {};
-  if (s.srcPath && (s.type === 'image' || s.type === 'chapter' || (s.type === 'split' && !isVideoScene(s)))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
+  if (s.srcPath && (['image', 'chapter', 'logo', 'cta'].includes(s.type) || (s.type === 'split' && !isVideoScene(s)))) assets.image = await loadImage(fs.readFileSync(s.srcPath));
   let reveals, revealLen = 0.65;
   if (s.type === 'statement') {
     // karaoke: each big word appears when the narrator says it
@@ -77,7 +77,7 @@ export async function writePoster(spec, timeline, file) {
  */
 /** Seconds until each scene type's entrance animation (excluding reveals) is finished. */
 const ENTRANCE = {
-  title: 1.3, outro: 1.3, chapter: 1.7, timeline: 0.95, stat: 1.65, quote: 1.2, code: 0.75, compare: 0.65, chart: 0.75,
+  title: 1.3, outro: 1.3, slam: 0.3, logo: 2.0, cta: 1.3, chapter: 1.7, timeline: 0.95, stat: 1.65, quote: 1.2, code: 0.75, compare: 0.65, chart: 0.75,
   bullets: 0.65, steps: 0.65, decisions: 0.65, statement: 0.6, split: 0.85, clip: 0.85, image: 0.85,
 };
 
@@ -93,6 +93,7 @@ export function planFrames(tl, L, fps) {
   const enterEnd = Math.max(ENTRANCE[tl.scene.type] ?? 0.7, L.transition && !['none', 'cut'].includes(L.transition) ? 0.62 : 0, L.index === 0 ? 0.5 : 0);
   mark(0, enterEnd);
   if (L.index === L.count - 1) mark(L.dur - 0.75, 0.75); // closing fade to black
+  if (tl.scene.text && ['clip', 'slam'].includes(tl.scene.type)) mark(L.dur - 0.15, 0.15); // slam snaps out at the cut
   else if (L.nextDip) mark(L.dur - 0.3, 0.3);
   for (const r of L.reveals) mark(r, L.revealLen ?? 0.65);
   for (const c of L.cues) {
@@ -165,8 +166,17 @@ ${err}`)))));
 }
 
 /** Where the video goes: full frame for clips, the media box for split scenes. */
+/** Speed and two-phase ramps (0.6 of the shot at ramp[0], then ramp[1]) as a setpts filter. */
+function speedFilter(s, dur) {
+  if (s.ramp) {
+    const [a, b] = s.ramp, x = (0.6 * dur * a).toFixed(4);
+    return `setpts='if(lt(T,${x}),T/${a},${x}/${a}+(T-${x})/${b})/TB',`;
+  }
+  return s.speed && s.speed !== 1 ? `setpts=PTS/${s.speed},` : '';
+}
+
 function videoFilter(s, L, W, H) {
-  if (s.type !== 'split') return fitFilter(s, W, H);
+  if (s.type !== 'split') return speedFilter(s, L.dur) + fitFilter(s, W, H);
   const r = splitRect(s, L);
   return `${fitFilter(s, r.w, r.h)},pad=${W}:${H}:${r.x}:${r.y}:color=black`;
 }

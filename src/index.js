@@ -13,18 +13,22 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createCanvas } from '@napi-rs/canvas';
-import { FFMPEG, run, stillFor, writePoster } from './render.js';
+import { FFMPEG, run, stillFor, writePoster, mediaDuration } from './render.js';
 import { createRenderPool } from './render-pool.js';
 import { createSpeaker, SAMPLE_RATE, estimateSeconds, VOICES, DEFAULT_VOICE, setup } from './tts.js';
 import { normalize, sentences, forSpeech, cuesFor, SpecError, SCENE_TYPES, FORMATS, lint, speakable } from './spec.js';
 import { fromMarkdown } from './markdown.js';
 import { MOODS, writeScore } from './music.js';
 import { resolveMedia } from './media.js';
+import { trailerMusic, layoutOnBeats, lintTrailer, bestWindow, sourceSeconds, hasAudio, atempoChain } from './trailer.js';
 import { writeYouTubePackage } from './youtube.js';
 import { chooseTransition, TRANSITIONS } from './draw.js';
 import { THEMES } from './themes.js';
 
 export { record } from './record.js';
+export { shoot } from './shoot.js';
+export { analyzeTrack } from './trailer-music.js';
+export { lintTrailer, layoutOnBeats } from './trailer.js';
 export { setup };
 export { THEMES, VOICES, DEFAULT_VOICE, SCENE_TYPES, FORMATS, TRANSITIONS, SpecError, normalize, lint, speakable, fromMarkdown };
 export { FFMPEG, planFrames } from './render.js';
@@ -47,6 +51,7 @@ export async function video(input, opts = {}) {
   for (const w of lint(spec)) log({ stage: 'lint', message: w });
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-'));
   fs.mkdirSync(path.dirname(spec.output), { recursive: true });
+  const trailer = spec.trailer ? await prepareTrailer(spec, tmp, log) : null;
   const cores = os.cpus().length;
   const speaker = spec.voice ? createSpeaker({ voice: spec.voice, speed: spec.speed, ...ttsShape(cores, opts) }) : null;
   // scene renders run in worker processes: one canvas + one ffmpeg each
@@ -101,7 +106,24 @@ export async function video(input, opts = {}) {
     // Audio: narration (+ music ducked under it by a sidechain compressor), then loudness-
     // normalized to -14 LUFS / -1.5 dBTP, the YouTube/TikTok/Spotify playback target.
     const master = `loudnorm=I=-14:TP=-1.5:LRA=11,aresample=48000,aformat=channel_layouts=stereo`;
-    if (spec.music) {
+    if (trailer) {
+      // the music is the spine; game audio from each shot sits under it, time-stretched to the shot's speed
+      args.push('-ss', String(trailer.music.start), '-i', trailer.music.file);
+      let fc = `[2:a]aresample=48000,aformat=channel_layouts=stereo,volume=${spec.musicVolume},afade=t=out:st=${Math.max(0, total - 1.5).toFixed(3)}:d=1.5[m];[1:a]aresample=48000,aformat=channel_layouts=stereo[vo]`;
+      const mix = ['[m]', '[vo]'];
+      let k = 3;
+      for (const tl of timeline) {
+        const s = tl.scene;
+        if (s.type !== 'clip' || s.audio === false || !(await hasAudio(FFMPEG, s.srcPath))) continue;
+        const src = sourceSeconds(s, tl.dur), ms = Math.round(tl.offset * 1000);
+        args.push('-ss', String(s.start || 0), '-t', src.toFixed(3), '-i', s.srcPath);
+        const speed = s.ramp ? (0.6 * s.ramp[0] + 0.4 * s.ramp[1]) : (s.speed || 1);
+        fc += `;[${k}:a]aresample=48000,aformat=channel_layouts=stereo,${atempoChain(speed)}atrim=0:${tl.dur.toFixed(3)},afade=t=out:st=${Math.max(0, tl.dur - 0.05).toFixed(3)}:d=0.05,adelay=${ms}|${ms},volume=${s.audioVolume ?? spec.gameAudio}[g${k}]`;
+        mix.push(`[g${k}]`);
+        k++;
+      }
+      args.push('-filter_complex', `${fc};${mix.join('')}amix=inputs=${mix.length}:normalize=0:duration=first,${master}[a]`, '-map', '0:v', '-map', '[a]');
+    } else if (spec.music) {
       let musicFile = spec.music;
       if (MOODS[spec.music]) musicFile = writeScore(path.join(tmp, 'score.wav'), spec.music, total);
       args.push('-stream_loop', '-1', '-i', musicFile, '-filter_complex',
@@ -132,10 +154,11 @@ export async function video(input, opts = {}) {
     await Promise.all(sidecars);
     let youtube = null;
     if (spec.youtube) youtube = await writeYouTubePackage(spec, timeline, base, input._credits || []);
-    const scenes = timeline.map((tl, i) => ({ index: i, type: tl.scene.type, title: tl.scene.title ?? null, start: +tl.offset.toFixed(3), duration: +tl.dur.toFixed(3), say: tl.scene.say ?? null }));
+    const scenes = timeline.map((tl, i) => ({ index: i, type: tl.scene.type, label: tl.scene.label ?? null, section: tl.scene.section ?? null, beats: tl.scene.beats ?? null, transition: tl.transition, title: tl.scene.title ?? null, start: +tl.offset.toFixed(3), duration: +tl.dur.toFixed(3), say: tl.scene.say ?? null }));
     const result = {
       output: spec.output, srt: base + '.srt', report: base + '.report.json', poster, gif, ...(youtube || {}),
       credits: input._credits || [],
+      ...(trailer ? { trailer: { bpm: trailer.music.map.bpm, music: spec.music, cuts: timeline.map((tl) => +tl.offset.toFixed(3)) } } : {}),
       duration: +total.toFixed(3), seconds: +((Date.now() - t0) / 1000).toFixed(1),
       width: spec.width, height: spec.height, fps: spec.fps, voice: spec.voice, scenes,
     };
@@ -153,7 +176,15 @@ export default video;
 /** Validate a spec without rendering. Returns { ok, problems, estimatedSeconds }. */
 export function check(input, opts = {}) {
   try {
-    const spec = normalize(input, opts);
+    const spec = normalize(input, { ...opts, allowUnfilmed: true });
+    if (spec.trailer) {
+      // trailers are timed by beats: lay them on an exact grid at the spec's tempo (good enough to lint)
+      const bpm = spec.bpm || 110, beat = 60 / bpm, n = spec.scenes.reduce((a, s) => a + s.beats, 0);
+      const beats = Array.from({ length: n + 1 }, (_, i) => +(i * beat).toFixed(4));
+      const layout = layoutOnBeats(spec.scenes, { beats, hits: [] }, spec.fps);
+      if (spec.music && spec.music !== 'trailer') layout.forEach((l) => (l.overrun = false)); // unknown until the track is analyzed
+      return { ok: true, problems: [], warnings: [...spec.unfilmed, ...lintTrailer(spec, layout)], estimatedSeconds: +(n * beat).toFixed(1), scenes: spec.scenes.length, output: spec.output, unfilmed: spec.unfilmed.length };
+    }
     const est = spec.scenes.reduce((n, s) => {
       const sp = sentences(s.say).reduce((m, x) => m + estimateSeconds(x, spec.speed) + spec.gap, 0);
       return n + Math.max(sp ? sp + spec.padBefore + spec.padAfter : 0, s.duration || 0, 1.2);
@@ -172,6 +203,7 @@ export function check(input, opts = {}) {
 export async function preview(input, opts = {}) {
   input = await prepare(input, opts.baseDir);
   const spec = normalize(input, opts);
+  if (spec.trailer) return previewTrailer(spec, opts, input);
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-prev-'));
   try {
     const timeline = estimatedTimeline(spec);
@@ -201,6 +233,58 @@ export async function preview(input, opts = {}) {
 }
 
 // ------------------------------------------------------------------ internals
+
+/**
+ * Trailer mode: lay scenes on the music's beat grid (frames per scene), choose flash cuts on
+ * hits, pick the most active window of each clip for `start: auto`, and run trailer lint.
+ */
+async function prepareTrailer(spec, tmp, log = () => {}, { dry = false } = {}) {
+  log({ stage: 'music', message: spec.music === 'trailer' || !spec.music ? `scoring a trailer cue at ${spec.bpm || 110} bpm` : `finding the beat in ${path.basename(spec.music)}` });
+  const music = await trailerMusic(spec, tmp, FFMPEG, { dry });
+  const layout = layoutOnBeats(spec.scenes, music.map, spec.fps);
+  for (const [i, s] of spec.scenes.entries()) {
+    s._frames = layout[i].frames;
+    if (s.transition == null) s.transition = i === 0 ? 'cut' : layout[i].onHit ? 'flash' : 'cut';
+    if (s.type === 'clip' && s.srcPath) {
+      const dur = layout[i].frames / spec.fps;
+      s._srcSeconds = sourceSeconds(s, dur);
+      s._clipSeconds = await mediaDuration(s.srcPath);
+      if (s.start === 'auto') s.start = await bestWindow(FFMPEG, s.srcPath, s._srcSeconds);
+    }
+  }
+  for (const w of lintTrailer(spec, layout)) log({ stage: 'lint', message: w });
+  return { music, layout };
+}
+
+/** Storyboard: one frame per beat, labelled with its section, beats and cut. No audio synthesis. */
+async function previewTrailer(spec, opts, input) {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'makevideo-prev-'));
+  try {
+    const warnings = [];
+    const t = await prepareTrailer(spec, tmp, (e) => e.stage === 'lint' && warnings.push(e.message), { dry: true });
+    const n = spec.scenes.length;
+    const timeline = spec.scenes.map((s, i) => ({ scene: s, offset: t.layout[i].start, dur: t.layout[i].frames / spec.fps, frames: t.layout[i].frames, spoken: [], index: i, count: n, transition: 'none' }));
+    const cols = Math.min(4, n), rows = Math.ceil(n / cols);
+    const tw = Math.round(spec.width / 4), th = Math.round(spec.height / 4), pad = 14, lab = 34;
+    const sheet = createCanvas(cols * (tw + pad) + pad, rows * (th + pad + lab) + pad);
+    const sc = sheet.getContext('2d');
+    sc.fillStyle = '#111'; sc.fillRect(0, 0, sheet.width, sheet.height);
+    for (const [i, tl] of timeline.entries()) {
+      const frame = await stillFor(spec, tl, Math.min(tl.dur * 0.55, Math.max(0.3, tl.dur - 0.2)), tmp);
+      const x = pad + (i % cols) * (tw + pad), y = pad + Math.floor(i / cols) * (th + pad + lab);
+      sc.fillStyle = '#ddd'; sc.font = '600 16px sans-serif'; sc.textBaseline = 'top';
+      sc.fillText(`${i + 1}. ${tl.scene.label || tl.scene.type} · ${tl.scene.section} · ${tl.scene.beats}b · ${tl.offset.toFixed(1)}s${tl.scene.transition === 'flash' ? ' · FLASH' : ''}`, x, y + 6);
+      sc.drawImage(frame, x, y + lab, tw, th);
+    }
+    const out = opts.output || spec.output.replace(/\.[^.]+$/, '') + '.preview.png';
+    fs.mkdirSync(path.dirname(out), { recursive: true });
+    fs.writeFileSync(out, sheet.toBuffer('image/png'));
+    const end = timeline[n - 1].offset + timeline[n - 1].dur;
+    return { output: out, estimatedSeconds: +end.toFixed(1), scenes: n, bpm: t.music.map.bpm, media: [], warnings };
+  } finally {
+    try { fs.rmSync(tmp, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 }); } catch {}
+  }
+}
 
 /** Resolve stock-image searches and number chapters before validation. Returns a copy. */
 async function prepare(input, baseDir, log = () => {}) {
@@ -235,7 +319,7 @@ function timeScene(spec, s, parts) {
     return seg;
   });
   const speech = spoken.length ? t + spec.padAfter : 0;
-  const frames = Math.max(1, Math.round(Math.max(speech, s.duration || 0, 1.2) * spec.fps));
+  const frames = s._frames ?? Math.max(1, Math.round(Math.max(speech, s.duration || 0, 1.2) * spec.fps)); // trailers: frames come from the beat grid
   if (s.caption) spoken.forEach((sp, k) => (sp.text = k === 0 ? s.caption : null));
   return { scene: s, offset: 0, dur: frames / spec.fps, frames, spoken };
 }

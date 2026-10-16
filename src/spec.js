@@ -6,6 +6,7 @@ import { THEMES } from './themes.js';
 import { VOICES, DEFAULT_VOICE } from './tts.js';
 import { TRANSITIONS } from './draw.js';
 import { MOODS } from './music.js';
+import { shapeScenes } from './trailer.js';
 
 export const FORMATS = {
   landscape: [1920, 1080], '16:9': [1920, 1080],
@@ -30,6 +31,9 @@ export const SCENE_TYPES = {
   split: { needs: ['src'], example: { type: 'split', src: 'screenshot.png', title: 'The new HUD', items: ['Cleaner', 'Faster to read'], say: 'The new HUD. It is cleaner. And faster to read.' } },
   chapter: { needs: ['title'], example: { type: 'chapter', number: 2, title: 'The Tyrant King', search: 'Tyrannosaurus rex skeleton', say: 'Chapter two. The tyrant king.' } },
   timeline: { needs: ['events'], example: { type: 'timeline', title: 'When it lived', events: [{ when: '68 Mya', label: 'T. rex appears' }, { when: '66 Mya', label: 'Asteroid impact' }], say: 'When it lived. It appears sixty eight million years ago. Two million years later, the asteroid hits.' } },
+  slam: { needs: ['text'], example: { type: 'slam', text: 'One wall. 200 soldiers.', beats: 2 } },
+  logo: { needs: ['title'], example: { type: 'logo', title: 'Siege Lord', subtitle: 'Hold the line', beats: 8 } },
+  cta: { needs: [], example: { type: 'cta', title: 'Siege Lord', button: 'Wishlist on Steam', subtitle: 'Coming 2027', beats: 8 } },
   outro: { needs: ['title'], example: { type: 'outro', title: 'Thanks for watching', say: 'That is all for now.' } },
 };
 
@@ -61,15 +65,18 @@ export const STYLES = {
   history: { theme: 'documentary', music: 'epic', musicVolume: 0.3, transition: 'fade', padAfter: 0.75, youtube: true },
   nature: { theme: 'nature', music: 'wonder', musicVolume: 0.3, transition: 'fade', padAfter: 0.75, youtube: true },
   explainer: {},
+  // music-first trailers: no narration, cuts on beats, text slams, Steam end card
+  trailer: { theme: 'trailer', voice: false, music: 'trailer', captions: false, transition: 'cut', progressBar: false, padBefore: 0, padAfter: 0, musicVolume: 1, trailer: true },
 };
 
-export function normalize(input, { baseDir = process.cwd(), checkFiles = true } = {}) {
-  const p = [];
+export function normalize(input, { baseDir = process.cwd(), checkFiles = true, allowUnfilmed = false } = {}) {
+  const p = [], unfilmed = [];
   if (Array.isArray(input)) input = { scenes: input };
   if (input && input.style) {
     if (!STYLES[input.style]) throw new SpecError([`style "${input.style}" is unknown. Use one of: ${Object.keys(STYLES).join(', ')}.`]);
     input = { ...STYLES[input.style], ...input };
   }
+  if (input && input.trailer) input = { ...input, scenes: shapeScenes((input.scenes || []).map((s) => (s.type === 'statement' ? { ...s, type: 'slam' } : s.type === 'cta' && !s.title && !s.src && input.title ? { ...s, title: input.title } : s))) };
   if (!input || typeof input !== 'object') throw new SpecError(['Spec must be an object like { title, scenes: [...] }.']);
   const fmt = input.format ?? 'landscape';
   let [width, height] = FORMATS[fmt] || [];
@@ -97,7 +104,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     if (s.say != null && typeof s.say !== 'string' && !Array.isArray(s.say)) p.push(`${where}.say must be a string (or array of sentences).`);
     if (Array.isArray(s.say)) s.say = s.say.join(' ');
     if (s.type === 'chapter' && s.number == null) s.number = undefined;
-    if (!s.say && !s.duration) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in makevideo: add "say": "..." or set "duration": seconds for a silent beat.`);
+    if (!s.say && !s.duration && !input.trailer) p.push(`${where} has no "say" (narration) and no "duration". Narration is the default in makevideo: add "say": "..." or set "duration": seconds for a silent beat.`);
     if (s.type === 'timeline' && s.events) {
       if (!Array.isArray(s.events)) p.push(`${where}.events must be an array like ${JSON.stringify(def.example.events)}`);
       else s.events = s.events.map((e) => (typeof e === 'string' ? { when: e.split(':')[0], label: e.split(':').slice(1).join(':').trim() } : e));
@@ -108,11 +115,12 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
         : Object.entries(s.bars).map(([label, value]) => ({ label, value: Number(value) }));
       if (s.bars.some((b) => !Number.isFinite(b.value))) p.push(`${where}.bars values must be numbers. Example: ${JSON.stringify(def.example.bars)}`);
     }
+    if (typeof s.ramp === 'string') s.ramp = s.ramp.split(/[\s,>]+/).map(Number);
     if (s.transition && !TRANSITIONS.includes(s.transition)) p.push(`${where}.transition "${s.transition}" is unknown. Use one of: ${TRANSITIONS.join(', ')}.`);
     if (s.search && !s.src) { /* resolved from Wikimedia Commons at render time */ }
     if (s.src) {
       s.srcPath = path.resolve(baseDir, s.src);
-      if (checkFiles && !fs.existsSync(s.srcPath)) p.push(`${where}.src not found: ${s.srcPath}`);
+      if (checkFiles && !fs.existsSync(s.srcPath)) (s.shot && allowUnfilmed ? unfilmed : p).push(s.shot ? `${where} ("${s.label || s.src}") has not been filmed yet: run "makevideo shoot <beat sheet>" to record it from your game.` : `${where}.src not found: ${s.srcPath}`);
       if ((s.type === 'image' || s.type === 'chapter') && !IMG.test(s.src)) p.push(`${where}.src should be a still image (png/jpg/webp). For video or GIF use type "clip".`);
       if (s.type === 'split' && !VID.test(s.src) && !IMG.test(s.src)) p.push(`${where}.src should be an image or a video.`);
       if (s.type === 'clip' && !VID.test(s.src)) p.push(`${where}.src should be a video or GIF (mp4/webm/mov/gif). For stills use type "image".`);
@@ -121,7 +129,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
   });
 
   let music = null;
-  if (input.music && MOODS[input.music]) music = input.music; // generated score
+  if (input.music && (MOODS[input.music] || input.music === 'trailer')) music = input.music; // generated score
   else if (input.music) {
     music = path.resolve(baseDir, input.music);
     if (checkFiles && !fs.existsSync(music)) p.push(`music not found: ${music}. Use a file, or a generated mood: ${Object.keys(MOODS).join(', ')}.`);
@@ -137,6 +145,7 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
   if (p.length) throw new SpecError(p);
 
   return {
+    unfilmed,
     title: input.title ?? scenes.find((s) => s.title)?.title ?? 'video',
     output: path.resolve(baseDir, input.output ?? slug(input.title ?? 'video') + '.mp4'),
     width, height,
@@ -151,6 +160,13 @@ export function normalize(input, { baseDir = process.cwd(), checkFiles = true } 
     gif: input.gif ?? false,
     transition: input.transition ?? 'auto',
     credit: input.credit ?? true,
+    trailer: !!input.trailer,
+    bpm: input.bpm ?? null,
+    musicOffset: input.musicOffset ?? null,
+    musicStart: input.musicStart ?? null,
+    gameAudio: input.gameAudio ?? 0.35,
+    game: input.game ?? null,
+    gameDir: input.gameDir ?? null,
     style: input.style ?? null,
     youtube: input.youtube ?? false,
     thumbnailText: input.thumbnailText ?? null,

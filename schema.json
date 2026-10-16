@@ -88,7 +88,7 @@
     },
     "music": {
       "type": "string",
-      "description": "generated score (documentary | epic | wonder | tension) or an audio file path"
+      "description": "generated score (documentary | epic | wonder | tension | trailer) or an audio file path. Trailers cut on its beats."
     },
     "musicVolume": {
       "type": "number"
@@ -147,10 +147,13 @@
               "clip",
               "code",
               "compare",
+              "cta",
               "decisions",
               "image",
+              "logo",
               "outro",
               "quote",
+              "slam",
               "split",
               "stat",
               "statement",
@@ -194,8 +197,15 @@
             "description": "image (png/jpg/webp) or clip (mp4/webm/mov/gif), relative to the spec file"
           },
           "start": {
-            "type": "number",
-            "description": "clip start offset, seconds"
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "const": "auto"
+              }
+            ],
+            "description": "clip: start time in the source (seconds), or \"auto\" for the most active window"
           },
           "fit": {
             "enum": [
@@ -355,6 +365,62 @@
           "credit": {
             "type": "string",
             "description": "attribution line shown on the image"
+          },
+          "beats": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "trailer: length in music beats (clip 4, slam 2, logo 8, cta 8 by default)"
+          },
+          "section": {
+            "enum": [
+              "intro",
+              "build",
+              "drop",
+              "breakdown",
+              "finale",
+              "outro"
+            ],
+            "description": "trailer: part of the music this beat sits in (shapes the generated score)"
+          },
+          "speed": {
+            "type": "number",
+            "description": "clip playback speed (0.5 = slow motion)"
+          },
+          "ramp": {
+            "type": "string",
+            "description": "speed ramp \"from>to\", e.g. \"1>0.3\" (switches at 60%)"
+          },
+          "audio": {
+            "type": "boolean",
+            "description": "clip: false mutes its game audio in trailers"
+          },
+          "button": {
+            "type": "string",
+            "description": "cta: button text (default \"Wishlist on Steam\")"
+          },
+          "shot": {
+            "type": "object",
+            "description": "trailer clip filmed by `makevideo shoot`: { setup: JS run in the game, camera: \"orbit|push|dolly|fly|follow|hold ...\", wait, fps, mode: \"frames\"|\"realtime\" }",
+            "properties": {
+              "setup": {
+                "type": "string"
+              },
+              "camera": {
+                "type": "string"
+              },
+              "wait": {
+                "type": "number"
+              },
+              "fps": {
+                "type": "integer"
+              },
+              "mode": {
+                "enum": [
+                  "frames",
+                  "realtime"
+                ]
+              }
+            }
           }
         }
       }
@@ -377,9 +443,10 @@
         "documentary",
         "history",
         "nature",
-        "explainer"
+        "explainer",
+        "trailer"
       ],
-      "description": "whole look + score + YouTube package"
+      "description": "whole look + score + package. \"trailer\": music-first Steam trailer cut on the beat"
     },
     "youtube": {
       "type": "boolean",
@@ -390,6 +457,30 @@
     },
     "description": {
       "type": "string"
+    },
+    "bpm": {
+      "type": "number",
+      "description": "trailer: tempo of the generated score, or the exact tempo of your track (see `makevideo beats`)"
+    },
+    "musicOffset": {
+      "type": "number",
+      "description": "trailer: time of the first beat in your track, for exact sync"
+    },
+    "musicStart": {
+      "type": "number",
+      "description": "trailer: start the video near this time in your track (snapped to a downbeat)"
+    },
+    "gameAudio": {
+      "type": "number",
+      "description": "trailer: volume of each clip's own game audio under the music (0..1, default 0.35)"
+    },
+    "game": {
+      "type": "string",
+      "description": "trailer: command that starts your Electron game for `makevideo shoot` (default \"npm start\")"
+    },
+    "gameDir": {
+      "type": "string",
+      "description": "trailer: folder to run the game command in"
     }
   }
 }

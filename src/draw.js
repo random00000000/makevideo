@@ -249,7 +249,8 @@ const drawers = {
 
   clip(ctx, s, t, L) {
     // the video itself is composited underneath by ffmpeg; we only draw the overlay
-    if (s.title || s.subtitle) lowerThird(ctx, L, s.title, s.subtitle, t);
+    if ((s.title || s.subtitle) && !L.trailer) lowerThird(ctx, L, s.title, s.subtitle, t);
+    if (s.text) drawSlam(ctx, L, s.text, t, true);
   },
 
   code(ctx, s, t, L) {
@@ -443,7 +444,7 @@ function drawCaption(ctx, L, t) {
   lines(ctx, ls, L.W / 2, y + 15 * L.u + lh * 0.1, lh, 'center');
 }
 
-export const TRANSITIONS = ['auto', 'push', 'slide', 'zoom', 'wipe', 'fade', 'dip', 'cut'];
+export const TRANSITIONS = ['auto', 'push', 'slide', 'zoom', 'wipe', 'fade', 'dip', 'cut', 'flash'];
 export const TRANSITION_SECONDS = 0.6;
 
 /** True when the scene's backdrop is live video composited underneath by ffmpeg. */
@@ -459,7 +460,7 @@ export function chooseTransition(scene, prev, global = 'auto') {
     else if (scene.type === 'chart' || scene.type === 'compare') t = 'wipe';
     else t = 'push';
   }
-  if (isVideoScene(scene) && !['cut', 'dip'].includes(t)) t = 'fade'; // overlay layer can only cross-fade
+  if (isVideoScene(scene) && !['cut', 'dip', 'flash'].includes(t)) t = 'fade'; // overlay layer can only cross-fade
   return t;
 }
 
@@ -536,12 +537,15 @@ function composite(ctx, cur, prev, kind, p, L) {
 export function drawFrame(ctx, scene, t, L) {
   const { W, H } = L;
   const kind = L.prevFrame ? L.transition : 'none';
-  const inTr = !['none', 'cut', 'dip'].includes(kind) && t < TRANSITION_SECONDS;
+  const inTr = !['none', 'cut', 'dip', 'flash'].includes(kind) && t < TRANSITION_SECONDS;
   const sc = inTr && kind !== 'fade' ? scratch(L) : null; // non-fade transitions compose from an offscreen copy
   drawContent(sc ? sc.getContext('2d') : ctx, scene, t, L);
   if (inTr) composite(ctx, sc, L.prevFrame, kind, easeInOut(t / TRANSITION_SECONDS), L);
   if (L.contentOnly) return;
   drawChrome(ctx, scene, t, L);
+  if (kind === 'flash' && t < 0.16) { // white flash on a music hit
+    ctx.globalAlpha = Math.pow(1 - t / 0.16, 1.5); ctx.fillStyle = '#ffffff'; ctx.fillRect(0, 0, W, H); ctx.globalAlpha = 1;
+  }
   let fade = 0;
   if (L.index === 0) fade = 1 - t / 0.45; // open from black
   if (kind === 'dip') fade = Math.max(fade, 1 - t / 0.25);
@@ -565,6 +569,7 @@ export function makeLayout(spec, scene, extra) {
     captionH: !spec.captions ? 80 * u : spec.captionStyle === 'bold' ? (portrait ? H * 0.42 : 330 * u) : portrait ? H * 0.2 + 200 * u : 230 * u,
     theme: withFont(typeof spec.theme === 'object' ? { ...THEMES.midnight, ...spec.theme } : THEMES[spec.theme], spec.font),
     captionStyle: spec.captionStyle,
+    trailer: spec.trailer,
     brand: spec.brand,
     captions: spec.captions,
     progress: spec.progressBar,
@@ -840,5 +845,119 @@ drawers.timeline = function timeline(ctx, s, t, L) {
       lines(ctx, lab, tx, midY + 92 * L.u, 44 * L.u, 'center');
     }
   });
+  ctx.globalAlpha = 1;
+};
+
+// ---------------------------------------------------------------- trailer scene types
+
+/**
+ * Text slam: huge display type that punches in on the beat (scale 1.3 → 1, fast), holds,
+ * and snaps out at the cut. Over footage it gets a soft dark band for legibility.
+ */
+export function drawSlam(ctx, L, text, t, overFootage = false) {
+  const inP = easeOut(t / 0.18), out = clamp((L.dur - t) / 0.12);
+  const a = Math.min(clamp(t / 0.06), out);
+  if (a <= 0) return;
+  const toks = accentTokens(String(text).toUpperCase());
+  const plain = toks.map((x) => x.text).join(' ');
+  const f = fit(ctx, L, plain, { maxW: L.W * 0.82, maxLines: 2, size: (L.portrait ? 120 : 132) * L.u, weight: 900, mono: 'display' });
+  const total = f.lines.length * f.lh;
+  const cy = overFootage ? L.H * 0.5 : (L.H - total) / 2 + total / 2;
+  if (overFootage) {
+    const g = ctx.createLinearGradient(0, cy - total, 0, cy + total);
+    g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(0.5, `rgba(0,0,0,${0.45 * a})`); g.addColorStop(1, 'rgba(0,0,0,0)');
+    ctx.fillStyle = g; ctx.fillRect(0, cy - total, L.W, total * 2);
+  }
+  const sc = 1.3 - 0.3 * inP;
+  ctx.save();
+  ctx.globalAlpha = a;
+  ctx.translate(L.W / 2, cy); ctx.scale(sc, sc); ctx.translate(-L.W / 2, -cy);
+  setFont(ctx, L, f.size, 900, 'display');
+  ctx.textAlign = 'left'; ctx.textBaseline = 'top';
+  ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 24 * L.u;
+  const space = ctx.measureText(' ').width;
+  let i = 0, y = cy - total / 2;
+  for (const line of f.lines) {
+    const ws = line.split(' ');
+    const width = ws.reduce((n, w) => n + ctx.measureText(w).width, 0) + space * (ws.length - 1);
+    let x = (L.W - width) / 2;
+    for (const w of ws) {
+      ctx.fillStyle = toks[i]?.accent ? L.theme.accent : '#ffffff';
+      ctx.fillText(w, x, y);
+      x += ctx.measureText(w).width + space;
+      i++;
+    }
+    y += f.lh;
+  }
+  ctx.restore();
+}
+
+drawers.slam = function slam(ctx, s, t, L) { drawSlam(ctx, L, s.text, t, false); };
+
+/** Logo / title reveal: the logo image (or the title in display type) blooms in on the hit. */
+drawers.logo = function logo(ctx, s, t, L) {
+  const a = easeOut(t / 1.2), sc = 0.9 + 0.1 * easeOut(t / 1.6);
+  ctx.save();
+  ctx.translate(L.W / 2, L.H * 0.45); ctx.scale(sc, sc); ctx.translate(-L.W / 2, -L.H * 0.45);
+  ctx.globalAlpha = a;
+  let bottom;
+  if (L.assets.image) {
+    const img = L.assets.image, maxW = L.W * 0.55, maxH = L.H * 0.42;
+    const k = Math.min(maxW / img.width, maxH / img.height);
+    const w = img.width * k, h = img.height * k;
+    ctx.shadowColor = L.theme.accent; ctx.shadowBlur = 60 * L.u * (1 - easeOut(t / 2));
+    ctx.drawImage(img, (L.W - w) / 2, L.H * 0.45 - h / 2, w, h);
+    bottom = L.H * 0.45 + h / 2;
+  } else {
+    const f = fit(ctx, L, String(s.title).toUpperCase(), { maxW: L.W * 0.8, maxLines: 2, size: 170 * L.u, weight: 900, mono: 'display' });
+    setFont(ctx, L, f.size, 900, 'display');
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.shadowColor = L.theme.accent; ctx.shadowBlur = 50 * L.u * (1 - easeOut(t / 2));
+    ctx.fillStyle = '#ffffff';
+    f.lines.forEach((ln, i) => ctx.fillText(ln, L.W / 2, L.H * 0.45 + (i - (f.lines.length - 1) / 2) * f.lh));
+    bottom = L.H * 0.45 + (f.lines.length * f.lh) / 2;
+  }
+  ctx.restore();
+  if (s.subtitle) {
+    ctx.globalAlpha = enter(t, 0.6, 0.8);
+    setFont(ctx, L, 40 * L.u, 600); ctx.fillStyle = L.theme.accent; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(String(s.subtitle).toUpperCase().split('').join('\u2009'), L.W / 2, bottom + 40 * L.u);
+    ctx.globalAlpha = 1;
+  }
+};
+
+/** Steam end card: logo or title, a "Wishlist on Steam" button, release line. */
+drawers.cta = function cta(ctx, s, t, L) {
+  const a = easeOut(t / 0.8);
+  ctx.globalAlpha = a;
+  let y = L.H * 0.3;
+  if (L.assets.image) {
+    const img = L.assets.image, k = Math.min((L.W * 0.4) / img.width, (L.H * 0.28) / img.height);
+    ctx.drawImage(img, (L.W - img.width * k) / 2, y - img.height * k / 2, img.width * k, img.height * k);
+    y += img.height * k / 2 + 50 * L.u;
+  } else if (s.title) {
+    const f = fit(ctx, L, String(s.title).toUpperCase(), { maxW: L.W * 0.8, maxLines: 1, size: 120 * L.u, weight: 900, mono: 'display' });
+    setFont(ctx, L, f.size, 900, 'display'); ctx.fillStyle = '#ffffff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(f.lines[0], L.W / 2, y);
+    y += f.size * 0.8 + 30 * L.u;
+  }
+  const label = s.button || 'Wishlist on Steam';
+  setFont(ctx, L, 50 * L.u, 800);
+  const bw = ctx.measureText(label).width + 110 * L.u, bh = 104 * L.u;
+  const pop = 0.92 + 0.08 * easeOut((t - 0.3) / 0.4);
+  ctx.save();
+  ctx.translate(L.W / 2, y + bh / 2); ctx.scale(pop, pop); ctx.translate(-L.W / 2, -(y + bh / 2));
+  ctx.globalAlpha = a * enter(t, 0.3, 0.4);
+  ctx.fillStyle = L.theme.accent; roundRect(ctx, (L.W - bw) / 2, y, bw, bh, bh / 2); ctx.fill();
+  ctx.fillStyle = L.theme.onAccent; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+  ctx.fillText(label, L.W / 2, y + bh / 2 + 2 * L.u);
+  ctx.restore();
+  y += bh + 50 * L.u;
+  if (s.subtitle) {
+    ctx.globalAlpha = enter(t, 0.6, 0.6); setFont(ctx, L, 42 * L.u, 600); ctx.fillStyle = L.theme.muted; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(s.subtitle, L.W / 2, y);
+    y += 60 * L.u;
+  }
+  if (s.note) { ctx.globalAlpha = enter(t, 0.8, 0.6); setFont(ctx, L, 30 * L.u, 500); ctx.fillStyle = L.theme.muted; ctx.fillText(s.note, L.W / 2, y); }
   ctx.globalAlpha = 1;
 };

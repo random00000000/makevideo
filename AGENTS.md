@@ -11,6 +11,8 @@ If you are an AI agent asked to produce a **video** (explainer, devlog, patch no
 - `src/piper.js`: the "fast" voices (Piper VITS via onnxruntime-node, espeak phonemes from `phonemizer`, resampled to 24 kHz). Ship only permissively licensed voices: lessac is research-only, and ryan/hfc are non-commercial.
 - `src/render.js` + `src/render-worker.js` + `src/render-pool.js`: scene layout, frame planning, drawing and ffmpeg encoding, run in a pool of processes.
 - `src/record.js`: screen capture.
+- `src/trailer.js` + `src/trailer-music.js`: trailer mode. It lays scenes on a beat grid, generates the trailer score, analyzes the beats of a user's track, picks the best clip window, and runs trailer lint.
+- `src/electron.cjs` (`makevideo/electron`) + `src/shoot.js`: the shot runner inside an Electron game (frame-stepped capture on virtual time, camera moves, F8 instant replay) and the `shoot` CLI that drives it. `examples/game` is a sample game to test it with (`cd examples/game && npm i`).
 - `src/markdown.js`: Markdown to spec (`fromMarkdown`).
 - `src/fonts.js` + `fonts/`: bundled OFL fonts (static weights cut from the variable fonts with fontTools; variable-font weights don't select reliably in @napi-rs/canvas).
 

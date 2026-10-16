@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 // Markdown starters per kind of video: `makevideo init --style documentary`
 export const STARTERS = {
   documentary: `---
@@ -62,4 +63,6 @@ A two-minute overview
 - Roll out next week?
 > One decision for you. Do we roll it out next week?
 `,
+  // a trailer beat sheet for `makevideo shoot` + render (Markdown kept in its own file: it has code fences)
+  trailer: fs.readFileSync(new URL('./starters/trailer.md', import.meta.url), 'utf8'),
 };

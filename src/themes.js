@@ -35,6 +35,14 @@ export const THEMES = {
     captionBg: 'rgba(0,0,0,0.85)', captionText: '#d8ffe8',
     codeBg: '#020604', codeHl: 'rgba(57,255,136,0.14)', syntax: darkSyntax, font: SANS, mono: MONO, display: DISPLAY,
   },
+  // trailer: near-black, heavy display type, a single warm accent (override with theme: { accent })
+  trailer: {
+    bg: ['#030303', '#0b0b0d'], glow: 'rgba(255,255,255,0.04)',
+    text: '#ffffff', muted: '#b8b8c0', accent: '#f2c14e', accent2: '#e8e8ee', onAccent: '#120d02',
+    panel: 'rgba(255,255,255,0.06)', panelStrong: 'rgba(0,0,0,0.75)',
+    captionBg: 'rgba(0,0,0,0.75)', captionText: '#ffffff',
+    codeBg: '#0b0b0d', codeHl: 'rgba(242,193,78,0.16)', syntax: darkSyntax, font: SANS, mono: MONO, display: DISPLAY, titleFace: 'display',
+  },
   // documentary styles: serif titles (titleFace), cinematic palettes
   documentary: {
     bg: ['#0b0a08', '#1d1811'], glow: 'rgba(216,178,110,0.12)',

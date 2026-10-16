@@ -12,9 +12,9 @@
 
 **Short-form too:** `"format": "shorts"` gives 1080×1920 with big word-by-word captions. ▶ [Watch the TikTok-style demo](docs/tiktok.mp4) ([`examples/tiktok.json`](examples/tiktok.json)): 23 s of video rendered in 15 s, plus an auto-exported GIF.
 
-**More examples, all made with makevideo:** ▶ [What's new in 0.5: documentaries](docs/whats-new-0.5.mp4) ([spec](examples/whats-new-0.5.md)) · ▶ [59-second demo](docs/makevideo-reddit.mp4) ([spec](examples/reddit-demo.md)) · ▶ [The house voice](examples/house-voice.md) · ▶ [Distribution recap](examples/recap-distribution.md) · ▶ [What's new in 0.4: closer to every agent](docs/whats-new-0.4.mp4) ([spec](examples/whats-new-0.4.md)) · ▶ [What's new in 0.3: speed](docs/whats-new-0.3.mp4) ([spec](examples/whats-new-0.3.md)) · ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
+**More examples, all made with makevideo:** ▶ [Neon Drift game trailer](docs/neon-drift-trailer.mp4) ([beat sheet](examples/game/trailer.md)) · ▶ [What's new in 0.5: documentaries](docs/whats-new-0.5.mp4) ([spec](examples/whats-new-0.5.md)) · ▶ [59-second demo](docs/makevideo-reddit.mp4) ([spec](examples/reddit-demo.md)) · ▶ [The house voice](examples/house-voice.md) · ▶ [Distribution recap](examples/recap-distribution.md) · ▶ [What's new in 0.4: closer to every agent](docs/whats-new-0.4.mp4) ([spec](examples/whats-new-0.4.md)) · ▶ [What's new in 0.3: speed](docs/whats-new-0.3.mp4) ([spec](examples/whats-new-0.3.md)) · ▶ [What's new in 0.2](docs/whats-new-0.2.mp4) (made from [one Markdown file](examples/whats-new-0.2.md)) · ▶ [Why use makevideo instead of building from scratch](docs/why-makevideo.mp4) ([spec](examples/why-makevideo.json)) · ▶ [Changelog video for v0.1](docs/changelog-0.1.mp4) ([spec](examples/changelog-0.1.json)): changelog and recap videos are a core use case.
 
-**What it does:** narrated slides · **automatic transitions** (push, slide, zoom, wipe) · kinetic **statements** · animated **charts** · **split** media + text · **write Markdown, get a video** · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
+**What it does:** **game trailers cut on the beat, with shots filmed from your Electron + Three.js game** · narrated slides · **automatic transitions** (push, slide, zoom, wipe) · kinetic **statements** · animated **charts** · **split** media + text · **write Markdown, get a video** · screenshots · gameplay/video clips · **GIFs in and out** · code · stats · quotes · before/after · **TikTok/Reels/Shorts captions** · custom fonts · background music · **screen recording** for trailers · `.srt` captions · poster frames.
 <br clear="right">
 
 ```bash
@@ -245,7 +245,9 @@ Scene `type` is inferred when omitted (`src` + `items`/`text` → split, `src` �
 makevideo <spec.json|spec.js>      render (mp4 + srt + json report + jpg poster)
 makevideo check <spec>             validate, estimate duration (instant)
 makevideo preview <spec>           contact-sheet PNG of every scene (about 1 s)
-makevideo init [file]              starter spec
+makevideo init [file] [--style trailer]   starter spec / trailer beat sheet
+makevideo shoot <trailer.md> [--all] [--only "Label"]   film every shot from your Electron game
+makevideo beats <song.mp3>          tempo, beats and sections of your track
 makevideo record <out.mp4> --seconds 10 [--window "Game"]   record screen/window for clip scenes
 makevideo agents [--all|--global]   tell agents to use makevideo for videos
 makevideo mcp                       MCP server (stdio)
@@ -276,20 +278,89 @@ makevideo: invalid spec
   - scenes[4] has no "say" (narration) and no "duration". Narration is the default in makevideo: ...
 ```
 
-## Game trailers & screen recordings
+## Game trailers: shot list → filmed shots → cut on the beat
+
+[![Neon Drift trailer](docs/neon-drift-trailer.jpg)](docs/neon-drift-trailer.mp4)
+
+▶ **[Watch the Neon Drift trailer](docs/neon-drift-trailer.mp4)** (36 s). The [sample Electron + Three.js game](examples/game) filmed all of its own shots from [one beat sheet](examples/game/trailer.md), and every cut lands on the music.
+
+A trailer is a **shot list, the shots, and an edit on the music**. makevideo does all three:
+
+```bash
+npx makevideo init --style trailer      # trailer.md: a beat sheet (shots, text slams, logo, Wishlist card)
+npx makevideo preview trailer.md        # storyboard on the beat grid + trailer lint (about 5 s)
+npx makevideo shoot trailer.md          # launches your Electron game and films every shot
+npx makevideo trailer.md                # cuts it on the beat with a score, text, logo and end card
+```
+
+**1. The shot list is a beat sheet.** Each `##` block is one beat of the edit, measured in **music beats**. A `shot` block says what to film. A lone line of text is a slam card. `#` is the logo. "Wishlist on Steam" is the end card.
+
+````md
+---
+style: trailer
+title: Neon Drift
+bpm: 110
+---
+
+## Dogfight
+<!-- section: drop, beats: 4 -->
+```shot
+setup: |
+  game.reset(); game.wave(20);
+camera: orbit hero 9 2 -40 40
+```
+FLY FAST
+
+## Until
+THEN THEY CAME
+
+# NEON DRIFT
+A neon arena shooter
+
+## Wishlist on Steam
+Coming 2027
+````
+
+**2. The game films itself.** You add two lines to the game:
+
+```js
+// Electron main process
+require('makevideo/electron').attach(win);
+// renderer (your Three.js code)
+window.makevideo = { renderer, scene, camera };
+```
+
+`makevideo shoot` starts the game, runs each shot's `setup` code, and moves the camera (`orbit`, `push`, `dolly`, `fly`, `follow`, `hold`, around any named object). It then records the canvas at 1920×1080 **on virtual time, frame by frame**. Footage is perfectly smooth at 30/60 fps even when your machine renders the game at 20 fps, and the HUD is never in the shot. Shots that need the game's own audio can use `mode: realtime`.
+
+**Instant replay:** while you play, press **F8** to save the last 15 seconds to `makevideo-clips/`, for the moments you can't script.
+
+**3. The edit is built on the music.**
+- Every scene lasts a whole number of beats, and every cut lands within half a frame of its beat.
+- Cuts that land on a hit **flash**.
+- The **generated score** follows your sections (intro → build → drop → breakdown → finale → outro), with braams, drums and risers. You can also bring your own track: `makevideo beats song.mp3` finds the tempo, beats and sections, and `bpm` + `musicOffset` make the sync exact.
+- Clips play at their `speed` (or `ramp: 1>0.3`), and `start: auto` picks a clip's most active window.
+- Each clip's game audio sits under the music, and the master is normalized to −14 LUFS.
+
+**Trailer lint** applies rules from how good Steam trailers are cut:
+- gameplay before 5 s
+- logo after gameplay, never before it
+- 30–90 s long
+- end on a call to action
+- text slams of 5 words or fewer
+- no three text cards in a row
+- clips that would loop
+- shots that run past the music
+
+### Screen recordings
+
+When the game isn't Electron, or you just want raw footage:
 
 ```bash
 npx makevideo record captures/siege.mp4 --seconds 12 --window "Hacksilver"   # one window (Windows)
 npx makevideo record captures/menu.mp4 --seconds 8                           # whole screen (Win/macOS/Linux)
 ```
 
-```js
-import { record, video } from 'makevideo';
-await record({ output: 'captures/boss.mp4', seconds: 10, window: 'My Game' });
-await video({ format: 'shorts', theme: 'forge', scenes: [
-  { type: 'clip', src: 'captures/boss.mp4', title: 'New boss', say: 'Meet the new boss.' },
-] });
-```
+Then use `![](captures/siege.mp4)` in the beat sheet.
 
 ## Performance
 

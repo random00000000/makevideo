@@ -1,0 +1,13 @@
+{
+  "name": "neon-drift-sample",
+  "private": true,
+  "description": "Tiny Electron + Three.js game used to show makevideo trailer shots (makevideo shoot).",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron ."
+  },
+  "devDependencies": {
+    "electron": "^44.7.2",
+    "three": "^0.186.1"
+  }
+}

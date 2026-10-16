@@ -48,14 +48,14 @@ export function fromMarkdown(md) {
     }
   }
   for (const b of blocks) {
-    const scene = toScene(b);
+    const scene = toScene(b, spec);
     if (scene) spec.scenes.push(scene);
   }
   if (!spec.title) spec.title = spec.scenes.find((s) => s.title)?.title;
   return spec;
 }
 
-function toScene({ level, heading, lines }) {
+function toScene({ level, heading, lines }, spec = {}) {
   const say = [];
   const items = [];
   const paras = [];
@@ -88,6 +88,7 @@ function toScene({ level, heading, lines }) {
   const para = paras.join(' ');
   const bars = items.map((it) => /^(.+?):\s*(-?[\d.,]+)\s*(.*)$/.exec(it.text));
   const mediaRef = media ? (media.search ? { search: media.search } : { src: media.src }) : {};
+  if (spec.style === 'trailer') return trailerScene({ level, heading, media, items, para, code, lang, opts, say, title });
   const chapterM = /^chapter\b[\s\d.:–-]*(.*)$/i.exec(heading || '');
   if (chapterM && level >= 2) {
     Object.assign(s, { type: 'chapter', title: chapterM[1].trim() || heading, subtitle: para || undefined, ...mediaRef });
@@ -141,4 +142,31 @@ function parseValue(v) {
   if (v === 'false') return false;
   if (/^-?\d+(\.\d+)?$/.test(v)) return Number(v);
   return v.replace(/^["']|["']$/g, '');
+}
+
+const slug = (x) => String(x || 'shot').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'shot';
+
+/** Trailer beat sheet: each ## heading is a beat; media = shot, lone text = slam card. */
+function trailerScene({ level, heading, media, items, para, code, lang, opts, say, title }) {
+  const s = {};
+  let shot = null;
+  if (code && lang === 'shot') {
+    shot = {};
+    // key: value lines; `setup: |` (or a bare `setup:`) starts a multi-line code block
+    let block = null;
+    for (const line of code) {
+      const m = /^(\w+):\s*(.*)$/.exec(line);
+      if (m) { block = m[2] === '|' || m[2] === '' ? m[1] : null; shot[m[1]] = block ? '' : parseValue(m[2]); }
+      else if (block) shot[block] += (shot[block] ? '\n' : '') + line.trim();
+    }
+  }
+  if (level === 1) Object.assign(s, { type: 'logo', title: heading, subtitle: para || undefined, ...(media && !VID.test(media.src || '') ? { src: media.src } : {}) });
+  else if (/wishlist|steam|call to action|\bcta\b|buy now|available/i.test(heading || '')) Object.assign(s, { type: 'cta', button: heading, subtitle: para || undefined, ...(media && !VID.test(media.src || '') ? { src: media.src } : {}) });
+  else if (media || shot) Object.assign(s, { type: 'clip', label: heading, src: media?.src || `shots/${slug(heading)}.mp4`, text: para || undefined, ...(shot ? { shot } : {}) });
+  else if (para || items.length) Object.assign(s, { type: 'slam', label: heading, text: para || items.map((i) => i.text).join(' ') });
+  else return null;
+  if (say.length) s.say = say.join(' ');
+  Object.assign(s, opts);
+  for (const k of Object.keys(s)) if (s[k] === undefined) delete s[k];
+  return s;
 }

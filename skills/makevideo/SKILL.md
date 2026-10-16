@@ -32,11 +32,21 @@ If the `makevideo` MCP server is connected, call `video_reference` once, then `p
 
 - voice `af_heart` (warm female, the house voice), theme `midnight`, landscape 1920×1080, captions on. Always use the default voice (af_heart, warm female). Don't pass --fast or another voice unless the user asks for it.
 - For TikTok/Shorts/Reels use `"format": "shorts"`, which switches on big word-by-word `bold` captions.
-- For game trailers, use `clip` scenes of real footage. Get footage with `npx makevideo record clip.mp4 --seconds 10 --window "Game Window Title"`.
+- For game trailers, use trailer mode (below), not narrated slides.
 
 ## Fastest path: Markdown
 
 Write `video.md`. Each `##` heading is a scene, list items are bullets, `- Label: 42` items become a chart, `![](clip.mp4)` adds media, a lone paragraph becomes a big statement, and `> lines` are the narration. Then run `npx makevideo video.md`.
+
+## Game trailers (style: trailer)
+
+A trailer has no narration; it is cut on music. Run `npx makevideo init --style trailer` to write `trailer.md`, a beat sheet. Each `##` block is one beat of the edit, sized in music beats (`<!-- section: drop, beats: 4 -->`). A ```` ```shot ```` block (`setup:` game code, `camera: orbit|push|dolly|fly|follow|hold ...`) is filmed from the game, and `![](clip.mp4)` uses existing footage. A lone line is a text slam (5 words or fewer). `#` is the logo, and a `## Wishlist on Steam` block is the end card. Then:
+
+1. `npx makevideo preview trailer.md` shows the storyboard on the beat grid plus trailer lint. Fix the lint.
+2. `npx makevideo shoot trailer.md` films the shots. The game needs `require('makevideo/electron').attach(win)` in Electron main and `window.makevideo = { renderer, scene, camera }` in the renderer.
+3. `npx makevideo trailer.md` renders it.
+
+For the user's own track, run `npx makevideo beats song.mp3` and put its `bpm` and `musicOffset` in the front matter. For non-Electron games, record footage with `npx makevideo record clip.mp4 --seconds 10 --window "Title"`. See examples/game.
 
 ## YouTube documentaries (history, science, dinosaurs)
 
@@ -44,7 +54,7 @@ Set `style: documentary` (history), `history` (battles, empires) or `nature` (sc
 
 ## Scene types
 
-`title`, `statement` (text; `*stars*` = accent words), `bullets`, `steps`, `decisions`, `chart` (bars [{label, value}], unit), `split` (src + items: media beside text), `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`. Transitions are automatic.
+`title`, `statement` (text; `*stars*` = accent words), `bullets`, `steps`, `decisions`, `chart` (bars [{label, value}], unit), `split` (src + items: media beside text), `image` (src), `clip` (src: mp4/webm/mov/gif, `start`), `code` (code, highlight), `stat` (value, label), `quote` (text, by), `compare` (left/right {title, items}), `outro`. Trailers add `slam` (text), `logo` (title or src), `cta` (button, subtitle). Transitions are automatic.
 
 For variety, open with a `title` or `statement`, mix in `chart`/`stat`/`split`, and avoid three scenes of the same type in a row. `check` warns you about this.
 
