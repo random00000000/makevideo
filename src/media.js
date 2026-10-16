@@ -90,7 +90,12 @@ export async function resolveMedia(input, { log = () => {}, portrait = false } =
     // does the picked file look like what was asked for? (shared words between query and title)
     const words = (x) => new Set(String(x).toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 3));
     const q = words(s.search), t = words(pick.title);
-    const match = [...q].some((w) => [...t].some((v) => v.startsWith(w.slice(0, 5)) || w.startsWith(v.slice(0, 5))));
+    const near = (w) => [...t].some((v) => v.startsWith(w.slice(0, 5)) || w.startsWith(v.slice(0, 5)));
+    // names (capitalized words) must show up in the title: "Julius Caesar bust" must not pass as a
+    // bust of Germanicus just because "bust" matched. Three or more names may miss one.
+    const names = String(s.search).split(/\s+/).filter((w) => /^[A-Z]/.test(w) && w.length > 3).map((w) => w.toLowerCase().replace(/[^a-z0-9]/g, ''));
+    const hits = names.filter(near).length;
+    const match = names.length ? hits >= (names.length >= 3 ? names.length - 1 : names.length) : [...q].some(near);
     credits.push({ search: s.search, title: pick.title, author: pick.author, license: pick.license, url: pick.page, match });
   }
   fs.mkdirSync(dir, { recursive: true });

@@ -771,7 +771,7 @@ const ROMAN = ['', 'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII', 'IX', 'X', 
 drawers.chapter = function chapter(ctx, s, t, L) {
   if (L.assets.image) {
     drawKenBurns(ctx, L.assets.image, { ...s, pan: s.pan || 'in' }, t, L);
-    ctx.fillStyle = 'rgba(0,0,0,0.42)'; ctx.fillRect(0, 0, L.W, L.H);
+    ctx.fillStyle = 'rgba(0,0,0,0.52)'; ctx.fillRect(0, 0, L.W, L.H);
   }
   const a = enter(t, 0.2, 1.0), b = enter(t, 0.6, 1.0);
   const label = s.kicker ?? (s.number ? `Chapter ${ROMAN[s.number] || s.number}` : '');
@@ -822,16 +822,22 @@ drawers.timeline = function timeline(ctx, s, t, L) {
     const when = fitText(ctx, String(e.when ?? ''), colW);
     setFont(ctx, L, 36 * L.u, 500);
     const lab = wrap(ctx, String(e.label ?? ''), colW).slice(0, 3);
+    // keep the text block inside the frame: edge events shift inward instead of clipping
+    const labW = Math.max(0, ...lab.map((l) => ctx.measureText(l).width));
+    setFont(ctx, L, 46 * L.u, 800, titleFace(L));
+    const half = Math.max(labW, ctx.measureText(when).width) / 2, pad = L.m * 0.5;
+    const tx = Math.min(Math.max(x, pad + half), L.W - pad - half);
+    setFont(ctx, L, 36 * L.u, 500);
     if (up) {
       const top = midY - 34 * L.u - lab.length * 44 * L.u;
       ctx.fillStyle = L.theme.muted;
-      lines(ctx, lab, x, top, 44 * L.u, 'center');
+      lines(ctx, lab, tx, top, 44 * L.u, 'center');
       setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.fillStyle = on ? L.theme.accent : L.theme.text;
-      ctx.textBaseline = 'bottom'; ctx.fillText(when, x, top - 8 * L.u);
+      ctx.textBaseline = 'bottom'; ctx.fillText(when, tx, top - 8 * L.u);
     } else {
-      setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.textBaseline = 'top'; ctx.fillText(when, x, midY + 34 * L.u);
+      setFont(ctx, L, 46 * L.u, 800, titleFace(L)); ctx.textBaseline = 'top'; ctx.fillText(when, tx, midY + 34 * L.u);
       setFont(ctx, L, 36 * L.u, 500); ctx.fillStyle = L.theme.muted;
-      lines(ctx, lab, x, midY + 92 * L.u, 44 * L.u, 'center');
+      lines(ctx, lab, tx, midY + 92 * L.u, 44 * L.u, 'center');
     }
   });
   ctx.globalAlpha = 1;
