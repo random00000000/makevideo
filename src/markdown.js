@@ -108,7 +108,7 @@ function toScene({ level, heading, lines }) {
     const type = /decision/i.test(heading) ? 'decisions' : items.every((i) => i.ordered) ? 'steps' : 'bullets';
     Object.assign(s, { type, title, items: items.map((i) => i.text) });
   } else if (stat) {
-    Object.assign(s, { type: 'stat', value: stat.value, label: stat.label || title });
+    Object.assign(s, { type: 'stat', value: stat.value, label: stat.label || para || title }); // a paragraph under **value** is its label
   } else if (para) {
     Object.assign(s, { type: 'statement', text: para, kicker: title });
   } else if (title) {
